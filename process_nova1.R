@@ -1,7 +1,4 @@
-library(Zorn)
-
-### preprocessing of data done in separate file. hpc2n!
-
+### preprocessing of data done in separate file, prep_*.R
 
 if(FALSE){
   source("/home/mahogny/github/zorn/R/job_general.R")

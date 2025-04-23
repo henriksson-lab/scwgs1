@@ -25,39 +25,6 @@ if(TRUE){
 }
 
 
-
-
-
-###############################################
-#' Aggregate data from QUAST
-#' This is a thin wrapper around BascetAggregateMap
-#' 
-#' @export
-BascetAggregateQUAST <- function( 
-    bascetRoot, 
-    inputName="quast",
-    #cacheFile=NULL, #option
-    include_cells=NULL,
-    verbose=FALSE,
-    runner=GetDefaultBascetRunner(),
-    bascet_instance=GetDefaultBascetInstance()
-){
-  BascetAggregateMap(
-    bascetRoot,
-    inputName,
-    aggr.quast,
-    verbose=verbose,
-    include_cells=include_cells
-  )
-  #print(666)
-  #CountDataFrameToSparseMatrix(m)
-}
-
-
-
-
-
-
 bascet_instance.default <- getBascetSingularityImage(store_at="~/mystore/")
 #bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
 bascet_runner <- LocalRunner(direct = TRUE, show_script=FALSE)
@@ -72,7 +39,7 @@ if(file.exists("quast.1.zip")) {
     bascetRoot,
     "cache_quast",
     BascetAggregateQUAST(
-        bascetRoot
+      bascetRoot
     )
   )
   system("echo END BascetAggregateQUAST >> time.txt; echo `date +%s` >> time.txt")
@@ -86,7 +53,7 @@ if(file.exists("abricate.1.zip")) {
     bascetRoot,
     "cache_abricate",
     BascetAggregateAbricate(
-        bascetRoot
+      bascetRoot
     )
   )
   system("echo END BascetAggregateAbricate >> time.txt; echo `date +%s` >> time.txt")  
@@ -103,7 +70,7 @@ if(file.exists("fastqc.1.zip")) {
     bascetRoot,
     "cache_fastqc",
     BascetAggregateFASTQC(
-        bascetRoot, verbose=TRUE
+      bascetRoot, verbose=TRUE
     )
   )
   system("echo END BascetAggregateFASTQC >> time.txt; echo `date +%s` >> time.txt")  
