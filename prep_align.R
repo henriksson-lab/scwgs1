@@ -1,3 +1,39 @@
+bascetRoot <- getwd()
+
+if(TRUE){
+  
+  setwd("~/github/zorn")
+  
+  source("R/job_general.R")
+  source("R/job_local.R")
+  source("R/job_slurm.R")
+  source("R/bascet_file.R")
+  source("R/zorn.R")
+  source("R/shell.R")
+  source("R/zorn_aggr.R")
+  source("R/count_kmer.R")
+  source("R/countsketch.R")
+  source("R/refgenome.R")
+  source("R/kraken.R")
+  source("R/container.R")
+  source("R/ext_tools.R")
+  
+} else {
+  
+  library(Zorn)
+  
+}
+
+
+bascet_instance.default <- getBascetSingularityImage(store_at="~/mystore/")
+#bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
+bascet_runner <- LocalRunner(direct = TRUE, show_script=FALSE)
+
+setwd(bascetRoot)
+
+
+
+
 
 ### Perform alignment
 system("echo START BascetAlignToReference >> time.txt; echo `date +%s` >> time.txt")
