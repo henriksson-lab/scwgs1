@@ -1,12 +1,36 @@
- 
+library(Zorn)
 
+### preprocessing of data done in separate file. hpc2n!
+
+
+if(FALSE){
+  source("/home/mahogny/github/zorn/R/job_general.R")
+  source("/home/mahogny/github/zorn/R/job_local.R")
+  source("/home/mahogny/github/zorn/R/job_slurm.R")
+  source("/home/mahogny/github/zorn/R/bascet_file.R")
+  source("/home/mahogny/github/zorn/R/zorn.R")
+  source("/home/mahogny/github/zorn/R/shell.R")
+  source("/home/mahogny/github/zorn/R/zorn_aggr.R")
+  source("/home/mahogny/github/zorn/R/aggr_functions.R")
+  source("/home/mahogny/github/zorn/R/count_kmer.R")
+  source("/home/mahogny/github/zorn/R/countsketch.R")
+  source("/home/mahogny/github/zorn/R/refgenome.R")
+  source("/home/mahogny/github/zorn/R/kraken.R")
+  source("/home/mahogny/github/zorn/R/container.R")
+  source("/home/mahogny/github/zorn/R/ext_tools.R")
+  
+} else {
+  library(Zorn)
+}
 
 ################################################################################
 ################## Postprocessing with Bascet/Zorn #############################
 ################################################################################
 
 bascet_runner <- LocalRunner(direct = TRUE)
-bascetRoot = "/husky/henriksson/atrandi/v2_wgs_novaseq1/"
+bascetRoot = "/husky/henriksson/atrandi/v4_wgs_novaseq1/"
+bascetRoot = "/husky/henriksson/atrandi/v4_wgs_novaseq3/"
+bascetRoot = "/husky/henriksson/atrandi/v4_wgs_saliva1//"
 #bascetRoot = "/husky/henriksson/atrandi/v2_wgs_miseq2/"  #for development
 
 
@@ -35,7 +59,7 @@ adata@meta.data <- cbind(adata@meta.data,kraken_taxid[colnames(adata),c("taxid",
 #### How many species?
 ##################KrakenSpeciesDistribution(adata)  ### Could use metadata column! TODO   rewrite
 
-saveRDS(adata@meta.data, "/husky/henriksson/atrandi/v2_wgs_novaseq1/metadata.RDS")
+saveRDS(adata@meta.data, file.path(bascetRoot,"kraken_metadata.RDS"))
 
 
 ## Dimensional reduction using kraken
@@ -89,17 +113,12 @@ ggsave("/husky/henriksson/atrandi/wgs_saliva1/hist_species.pdf", width=7, height
 
 #Compare with depth. "human" cells got few counts and end up in the middle
 
-
 FeaturePlot(adata, features = "log_cnt")
-
 FeaturePlot(adata, features = "Xanthomonas campestris")
 FeaturePlot(adata, features = "perc_human")
 
-
 ## Picks the wrong ones
 KneeplotPerSpecies(adata, max_species = 10)
-
-
 
 #v2_wgs_novaseq1  xanthomonas also here??? in mock??
 
@@ -118,16 +137,9 @@ KneeplotPerSpecies(adata, max_species = 10)
 ################################################################################
 
 
-cnt <- t(ReadBascetCountMatrix(bascetRoot,"chromcount"))  #should not need t!
+cnt <- ReadBascetCountMatrix(bascetRoot,"chromcount", verbose=FALSE)
 
 adata <- CreateSeuratObject(counts = CreateAssayObject(cnt), project = "proj", min.cells = 0, min.features = 0) ### do we need this? can overload also on assayobject!
-
-
-sort(colSums(cnt))
-sort(rowSums(cnt))
-
-#def need a kneeplot!
-#test loading one only
 
 
 ## Dimensional reduction using kraken
@@ -147,14 +159,14 @@ if(FALSE){
   adata <- FindTopFeatures(adata, min.cutoff = 'q0')
   adata <- RunSVD(adata)
   DepthCor(adata)
-  adata <- RunUMAP(object = adata, reduction = 'lsi', dims = 1:16, reduction.name = "kraken_umap")  ## depth seems to be less of a problem here
+  adata <- RunUMAP(object = adata, reduction = 'lsi', dims = 1:(nrow(adata)-1), reduction.name = "chrom_umap")  ## depth seems to be less of a problem here
 } else {
   
   adata <- NormalizeData(adata)
-  adata <- FindVariableFeatures(adata, selection.method = "vst", nfeatures = 17)
+  adata <- FindVariableFeatures(adata, selection.method = "vst", nfeatures = nrow(adata))
   adata <- ScaleData(adata, features = rownames(adata))
   adata <- RunPCA(adata, features = VariableFeatures(object = adata))
-  adata <- RunUMAP(adata, dims = 1:16, reduction.name = "kraken_umap")
+  adata <- RunUMAP(adata, dims = 1:(nrow(adata)-1), reduction.name = "chrom_umap")
 }
 DimPlot(object = adata, label = TRUE) + NoLegend()
 
@@ -162,24 +174,16 @@ DimPlot(object = adata, label = TRUE) + NoLegend()
 
 
 ### TODO label cell by maximum species.
-
-
 ### TODO kneeplot
-
 ### TODO doublet removal
-
 ### TODO barnyard plot
-
-
-
-# v2_wgs_novaseq1 chromcount ready!
 
 
 
 
 
 ################################################################################
-################## de novo KMER-analysis #######################################  
+################## informative KMER-analysis ###################################
 ################################################################################
 
 
@@ -188,13 +192,16 @@ kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
 
 ### Figure 4b
 kmer_hist$rank <- 1:nrow(kmer_hist)
-ggplot(kmer_hist[kmer_hist$cnt>2,], aes(rank, cnt)) + 
+ggplot(kmer_hist[kmer_hist$cnt>10,], aes(rank, cnt)) +   # not>2!!
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   ylab("Count")+
   xlab("Rank")
+ggsave(file.path(bascetRoot,"info_kmer_hist.pdf"), width = 5, height = 5)
+ggsave(file.path(bascetRoot,"info_kmer_hist.png"), width = 5, height = 5)
+
 
 picked_kmers <- ChooseInformativeKMERs(kmer_hist)
 
@@ -210,42 +217,29 @@ writeLines(picked_kmers, file.path(bascetRoot,"use_kmers.txt"))
 
 
 
+
+
+
+
+
 ################################################################################
-################## SKESA - post analysis ####################################### 
+################## Analysis of assembled genomes ###############################
 ################################################################################
 
 
-bascetRoot <- "/husky/henriksson/atrandi/bar"
-bascetRoot <- "/husky/henriksson/atrandi/v4_wgs_novaseq1/"
-
-### Assemble all genomes
-#system("echo START skesa >> time.txt; echo `date +%s` >> time.txt")
-my_job <- BascetMapCell(
-  bascetRoot,
-  withfunction = "_quast",
-  inputName = "skesa",
-  outputName = "quast",
-  runner=bascet_runner
-#  bascet_runnerance=bascet_runnerance
-)
-#WaitForJob(my_job)
-#system("echo END skesa >> time.txt; echo `date +%s` >> time.txt")
-
+#BascetCacheComputation(bascetRoot,"saved_quast_agggr",f2(1,2))
 
 #/husky/henriksson/atrandi/bar
 
-######### Aggregate data from previous Map call
-
-quast_aggr <- BascetAggregateMap(
+######### Aggregate data from quast mapcell call 
+quast_aggr.df <- BascetCacheComputation(bascetRoot,"saved_quast_agggr",MapListAsDataFrame(BascetAggregateMap(
   bascetRoot,
   "quast",
   aggr.quast,
   verbose=TRUE
-  #,
-#  include_cells = c(cellname_coord$cell[1:500])
-)
-
-quast_aggr.df <- MapListAsDataFrame(quast_aggr)
+  #  include_cells = c(cellname_coord$cell[1:500])
+)))
+#quast_aggr.df <- (quast_aggr)
 
 
 quast_aggr.df <- as.data.frame(quast_aggr.df)
@@ -272,15 +266,37 @@ plot((sort(as.integer(quast_aggr.df$num_contigs))))
 
 
 
-if(FALSE){
-  #check cell!
-  cellname_coord <- BascetCellNames(bascetRoot, "quast")
-  
-  #Open the file, prep for reading
-  #bascetFile <- OpenBascet(bascetRoot, bascetName)
-  
-}
 
 
+
+###############
+############### Abricate
+###############
+
+aggr_abricate <- BascetAggregateAbricate(
+    "/data/henriksson/github/zorn/test_aggr/abricate/2", 
+    #cacheFile=NULL, #option
+)
+
+#aggr_abricate
+#colnames(aggr_abricate)
+#rownames(aggr_abricate)
+
+##include_cells = c("_G1_H6_B7_A10","_H1_D4_H8_H12","_C2_G4_B9_E12")
+
+
+###############
+############### FASTQC
+###############
+
+bascetRoot <- "/home/mahogny/github/zorn/test_aggr/fastqc"
+
+BascetCacheComputation(
+  bascetRoot,
+  "cache_fastqc",
+  BascetAggregateFASTQC(
+    bascetRoot, verbose=TRUE
+  )
+)
 
 
