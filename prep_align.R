@@ -53,7 +53,7 @@ system("echo END BascetAlignToReference >> time.txt; echo `date +%s` >> time.txt
 system("echo START BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
 BascetBam2Fragments(
   bascetRoot,
-  runner=SlurmRunner(bascet_runner, ncpu="2")
+  runner=SlurmRunner(bascet_runner.default, ncpu="2")
 )
 system("echo END BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
 
@@ -62,7 +62,7 @@ system("echo END BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
 system("echo START BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
 BascetCountChrom(
   bascetRoot,
-  runner=SlurmRunner(bascet_runner, ncpu="2")
+  runner=SlurmRunner(bascet_runner.default, ncpu="2")
 )
 system("echo END BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
 
