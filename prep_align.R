@@ -26,8 +26,8 @@ if(TRUE){
 
 
 bascet_instance.default <- getBascetSingularityImage(store_at="~/mystore/")
-#bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
-bascet_runner <- LocalRunner(direct = TRUE, show_script=FALSE)
+bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
+#bascet_runner <- LocalRunner(direct = TRUE, show_script=FALSE)
 
 setwd(bascetRoot)
 
@@ -43,6 +43,9 @@ BascetAlignToReference(
   numLocalThreads=10
 )
 system("echo END BascetAlignToReference >> time.txt; echo `date +%s` >> time.txt")
+
+
+#above gave: /scratch/RtmpA0sCcu/Z_aln3c87a85cad38.sh: line 8: [: missing `]'  -- consistently!!
 
 
 
