@@ -168,6 +168,20 @@ system("echo END totirp >> time.txt; echo `date +%s` >> time.txt")
 
 
 
+######## and a new FASTQ file
+
+system("echo START tofastq_filtered >> time.txt; echo `date +%s` >> time.txt")
+BascetMapTransform(
+  bascetRoot,
+  inputName="nohost_aligned",
+  outputName = "new_filtered_fa",
+  out_format="R1.fq.gz"
+)
+system("echo END tofastq_filtered >> time.txt; echo `date +%s` >> time.txt")
+
+
+
+
 ################################################################################
 ################## count sketching #############################################
 ################################################################################
@@ -200,7 +214,8 @@ system("echo END BascetGatherCountSketch >> time.txt; echo `date +%s` >> time.tx
 system("echo START BascetRunKraken >> time.txt; echo `date +%s` >> time.txt")
 BascetRunKraken(
   bascetRoot,
-  inputName = "fastp",
+  #inputName = "fastp",
+  inputName = "new_filtered_fa",
   useKrakenDB="/home/m/mahogny/mystore/atrandi/kraken_ref/standard-8",
   numLocalThreads=10,
   runner=SlurmRunner(bascet_runner.default, ncpu="14")  #needs a lot of memory!
@@ -326,5 +341,66 @@ BascetMapCellFASTQC(
   inputName = "new_filtered"  # todo make mapcell work on fastq as input too
 )
 system("echo END BascetMapCellFASTQC >> time.txt; echo `date +%s` >> time.txt")
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 
+# 
+# how many % humna, % xantham, other?
+# barplots
+#
+# b-an01 [~/mystore/atrandi/v4_wgs_saliva1]$ ls *nohost_aligned* -lh
+# -rw-rw----+ 1 mahogny folk  1,0G apr 18 20:02 nohost_aligned.1.bam
+# -rw-rw----+ 1 mahogny folk  1,5G apr 18 20:02 nohost_aligned.10.bam
+# -rw-rw----+ 1 mahogny folk  1,4G apr 18 20:02 nohost_aligned.11.bam
+# -rw-rw----+ 1 mahogny folk  1,5G apr 18 20:02 nohost_aligned.12.bam
+# -rw-rw----+ 1 mahogny folk  880M apr 18 20:01 nohost_aligned.13.bam
+# -rw-rw----+ 1 mahogny folk  1,2G apr 18 20:02 nohost_aligned.14.bam
+# -rw-rw----+ 1 mahogny folk  1,1G apr 18 20:01 nohost_aligned.15.bam
+# -rw-rw----+ 1 mahogny folk  1,5G apr 18 20:03 nohost_aligned.16.bam
+# -rw-rw----+ 1 mahogny folk  1,3G apr 18 20:03 nohost_aligned.17.bam
+# -rw-rw----+ 1 mahogny folk  1,2G apr 18 20:02 nohost_aligned.18.bam
+# -rw-rw----+ 1 mahogny folk  1,5G apr 18 20:03 nohost_aligned.19.bam
+# -rw-rw----+ 1 mahogny folk  1,1G apr 18 20:02 nohost_aligned.2.bam
+# -rw-rw----+ 1 mahogny folk  1,2G apr 18 20:02 nohost_aligned.20.bam
+# -rw-rw----+ 1 mahogny folk  1,3G apr 18 20:02 nohost_aligned.3.bam
+# -rw-rw----+ 1 mahogny folk  1,3G apr 18 20:02 nohost_aligned.4.bam
+# -rw-rw----+ 1 mahogny folk  1,6G apr 18 20:03 nohost_aligned.5.bam
+# -rw-rw----+ 1 mahogny folk  1,7G apr 18 20:03 nohost_aligned.6.bam
+# -rw-rw----+ 1 mahogny folk  1,2G apr 18 20:02 nohost_aligned.7.bam
+# -rw-rw----+ 1 mahogny folk 1012M apr 18 20:01 nohost_aligned.8.bam
+# -rw-rw----+ 1 mahogny folk  1,5G apr 18 20:02 nohost_aligned.9.bam
+# b-an01 [~/mystore/atrandi/v4_wgs_saliva1]$ ls unsorted_aligned.* -lh
+# -rw-rw----+ 1 mahogny folk 2,1G apr  8 15:51 unsorted_aligned.1.bam
+# -rw-rw----+ 1 mahogny folk 1,9G apr  8 15:49 unsorted_aligned.10.bam
+# -rw-rw----+ 1 mahogny folk 2,2G apr  8 15:51 unsorted_aligned.11.bam
+# -rw-rw----+ 1 mahogny folk 2,4G apr  8 15:54 unsorted_aligned.12.bam
+# -rw-rw----+ 1 mahogny folk 3,0G apr  8 16:00 unsorted_aligned.13.bam
+# -rw-rw----+ 1 mahogny folk 2,9G apr  8 16:00 unsorted_aligned.14.bam
+# -rw-rw----+ 1 mahogny folk 2,2G apr  8 15:51 unsorted_aligned.15.bam
+# -rw-rw----+ 1 mahogny folk 1,9G apr  8 15:50 unsorted_aligned.16.bam
+# -rw-rw----+ 1 mahogny folk 2,7G apr  8 15:58 unsorted_aligned.17.bam
+# -rw-rw----+ 1 mahogny folk 2,6G apr  8 15:56 unsorted_aligned.18.bam
+# -rw-rw----+ 1 mahogny folk 2,5G apr  8 15:54 unsorted_aligned.19.bam
+# -rw-rw----+ 1 mahogny folk 2,7G apr  8 15:53 unsorted_aligned.2.bam
+# -rw-rw----+ 1 mahogny folk 1,6G apr  8 15:48 unsorted_aligned.20.bam
+# -rw-rw----+ 1 mahogny folk 2,3G apr  8 15:51 unsorted_aligned.3.bam
+# -rw-rw----+ 1 mahogny folk 2,0G apr  8 15:50 unsorted_aligned.4.bam
+# -rw-rw----+ 1 mahogny folk 2,8G apr  8 15:58 unsorted_aligned.5.bam
+# -rw-rw----+ 1 mahogny folk 2,5G apr  8 15:56 unsorted_aligned.6.bam
+# -rw-rw----+ 1 mahogny folk 2,2G apr  8 15:52 unsorted_aligned.7.bam
+# -rw-rw----+ 1 mahogny folk 2,8G apr  8 15:58 unsorted_aligned.8.bam
+# -rw-rw----+ 1 mahogny folk 2,3G apr  8 15:53 unsorted_aligned.9.bam
+
 
 

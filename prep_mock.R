@@ -1,4 +1,3 @@
-
 bascetRoot <- getwd()
 
 if(TRUE){
