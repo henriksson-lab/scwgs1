@@ -31,7 +31,7 @@ library(Matrix)
 library(future)
 plan("multicore", workers = 10)
 
-
+## Mock community: which chromosome is which strain
 map_seq2strain <- read.csv("~/github/scwgs/map_seq2strain.csv")
 strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from map_seq2strain group by strain")
 
@@ -42,6 +42,7 @@ strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from map_seq2s
 ################################################################################
 
 dataset_name <- "v4_wgs_novaseq1"
+dataset_name <- "v4_wgs_novaseq3"
 dataset_name <- "v4_wgs_saliva1"
 
 
@@ -69,47 +70,13 @@ setwd("/home/mahogny/github/zorn") #to put SQL in the right place
 ################################################################################
 
 mat <- ReadBascetCountMatrix(bascetRoot,"kraken", verbose=FALSE)
-#mat <- ReadBascetCountMatrix("/home/mahogny/test","kraken_count", verbose=FALSE)
-## we really should rename taxids in bascet!
-
-#mat <- ReadBascetKrakenMatrix("/home/mahogny/test", "kraken_count")  #rename to hdf5?
 
 ### Read matrix, rename 
-#mat <- ReadBascetKrakenMatrix(bascetRoot, "kraken")  #rename to hdf5?
 rownames(mat) <- stringr::str_remove(rownames(mat),stringr::fixed("BASCET_"))
 
 
 taxid_ob <- CreateAssayObject(t(mat))  ## replace any BASCET_? or keep? seurat: ('_'), replacing with dashes ('-')
 adata <- CreateSeuratObject(counts = taxid_ob, project = "proj", min.cells = 0, min.features = 0) ### do we need this? can overload also on assayobject!
-
-# 
-# if(TRUE){
-#   ### Compress the representation to avoid trouble with some tools; one way of doing it
-#   #compressed_mat <- SetTaxonomyNamesFeatures(mat)   #### or add name to the end of taxid_asdasd_XXX
-#   
-#   head(sort(colSums(compressed_mat), decreasing = TRUE), n=30)
-#   
-#   ############ This way we can 
-#   #note, t() needed from anndata
-#   #taxid_ob <- CreateAssayObject(t(compressed_mat))  ## replace any BASCET_? or keep? seurat: ('_'), replacing with dashes ('-')
-# } else {
-#   ### Compress the representation to avoid trouble with some tools; one way of doing it
-#   #compressed_mat <- SetTaxonomyNamesFeatures(mat) 
-#   
-#   ############ This way we can 
-#   #note, t() needed from anndata
-#   #taxid_ob <- CreateAssayObject(t(compressed_mat))  ## replace any BASCET_? or keep? seurat: ('_'), replacing with dashes ('-')
-#   #adata <- CreateSeuratObject(counts = taxid_ob, project = "proj", min.cells = 0, min.features = 0) ### do we need this? can overload also on assayobject!
-#   
-# }
-
-
-# map_cellid_depth <- data.frame(
-#   row.names = colnames(adata),
-#   cellid=colnames(adata),
-#   depth=adata$nCount_RNA
-# )
-
 
 ## Add KRAKEN consensus taxonomy to metadata
 kraken_taxid <- KrakenFindConsensusTaxonomy(mat)
@@ -118,24 +85,19 @@ kraken_taxid <- kraken_taxid[colnames(adata),c("taxid","phylum","class","order",
 adata@meta.data <- cbind(adata@meta.data,kraken_taxid[colnames(adata),c("taxid","phylum","class","order","family","genus","species")]) #AddMetaData behaves weirdly!!
 
 
-#### How many species?
-##################KrakenSpeciesDistribution(adata)  ### Could use metadata column! TODO   rewrite
-
+#### Save metadata for overlay in other sections (support merging different objects too)
 saveRDS(kraken_taxid, file.path(bascetRoot,"kraken_metadata.RDS"))
 
-
-## Dimensional reduction using kraken
-#DefaultAssay(adata) <- "kraken"
+## Subset data
 sum(adata$nCount_RNA>min_nCount_RNA)
-adata <- adata[,adata$nCount_RNA>min_nCount_RNA] ## Reduce to sensible number  ; we reduced earlier. I think we should not
-#sum(adata$nCount_RNA>1000)
-#adata <- adata[,adata$nCount_RNA>1000] ## Reduce to sensible number
+adata <- adata[,adata$nCount_RNA>min_nCount_RNA]
 adata
 
 #adata <- adata[,adata$species!="Homo sapiens"]  #clearly background!
 adata$log_cnt <- log10(1+adata$nCount_RNA)
 adata$perc_human <- adata@assays$RNA$counts["Homo sapiens",]/colSums(adata@assays$RNA$counts)
 
+## Dimensional reduction using kraken
 if(TRUE){
   #ATAC-seq style. think not the best way here
   adata <- RunTFIDF(adata)
@@ -153,16 +115,11 @@ if(TRUE){
 }
 
 
-if(FALSE){
-  adata$index_taxid_max <- paste("t",apply(adata@assays$RNA@counts,2,which.max))
-  DimPlot(object = adata, label = TRUE, group.by = "index_taxid_max", reduction = "kraken_umap") + NoLegend()
-}
-
-############# Barplot of species abundance according to KRAKEN
-
+## UMAP of genus abundance according to KRAKEN
 DimPlot(object = adata, label = TRUE, group.by = "genus", reduction = "kraken_umap") + NoLegend()
 ggsave(file.path(plotDir, "kraken_umap_genus.pdf"), width=15, height=5)
 
+## UMAP of species abundance according to KRAKEN
 DimPlot(object = adata, label = TRUE, group.by = "species", reduction = "kraken_umap") + NoLegend()
 ggsave(file.path(plotDir, "kraken_umap_species.pdf"), width=15, height=5)
 
@@ -175,22 +132,18 @@ df$species <- factor(df$species, levels = df$species)
 ggplot(df[df$cnt>5,], aes(species, cnt)) + geom_bar(stat="identity") + coord_flip() + theme_bw()
 ggsave(file.path(plotDir, "hist_species.pdf"), width=7, height=10, limitsize=FALSE) ### did we not remove xanthomonas by alignment, saliva?? TODO
 
-#saveRDS(adata, "/husky/henriksson/atrandi/wgs_saliva1/kraken.RDS")
-
 
 #Compare with depth. "human" cells got few counts and end up in the middle
-
 FeaturePlot(adata, features = "Xanthomonas campestris")
 ggsave(file.path(plotDir, "kraken_xanthomonas.pdf"), width=7, height=10, limitsize=FALSE)
+
 FeaturePlot(adata, features = c("log_cnt","perc_human"))
 ggsave(file.path(plotDir, "kraken_perc_human.pdf"), width=14, height=10, limitsize=FALSE)
 
 
-## Picks the wrong ones
-KneeplotPerSpecies(adata, max_species = 10) ##does not work for saliva?? TODO 66666666666666666666666666666666666666666666
+## TODO Picks the wrong ones
+KneeplotPerSpecies(adata, max_species = 10) ##does not work for saliva?? TODO 66666666666666666666666666666666666666666666   .. update?
 ggsave(file.path(plotDir, "kraken_kneeplot_per_species.pdf"), width=7, height=10, limitsize=FALSE)
-
-#NOTE: 3 cereibacter??? can we collapse? TODO
 
 
 ################################################################################
@@ -235,7 +188,6 @@ adata <- CreateSeuratObject(
 ) 
 
 ## Dimensional reduction using kraken
-#DefaultAssay(adata) <- "kraken"
 sum(adata$nCount_chrom_cnt>min_nCount_RNA)
 adata <- adata[,adata$nCount_chrom_cnt>min_nCount_RNA] ## Reduce to sensible number
 adata
@@ -307,13 +259,13 @@ if(file.exists(p_minh)) {
   if(!file.exists(p_use_kmers)) {
     picked_kmers <- ChooseInformativeKMERs( ### 0.002 => 11212 this killed conda!
       kmer_hist,
-      minfreq = 0.002
+#      minfreq = 0.002 #novaseq1, really few!
+#      minfreq = 0.0015 #saliva, really few!
+      minfreq = 0.0005 #novaseq3, really few!
       )
     writeLines(picked_kmers, p_use_kmers)
   }
 }
-
-#kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
 
 
 ### KMER count histogram
@@ -337,15 +289,16 @@ ggsave(file.path(plotDir,"info_kmer_hist.png"), width = 5, height = 5)
 
 
 
-### Read count matrix ///////////////// 
+### Read count matrix
 cnt <- ReadBascetCountMatrix(  #  x[.,.] <- val : x being coerced from Tsparse* to CsparseMatrix  ---- do this conversion manually
   bascetRoot,
   "kmer_counts"
-)  #### TODO: should read and concatenate multiple matrices; different name?
+) 
 dim(cnt)
 #rownames(cnt) <- paste0("_",rownames(cnt))  #### todo fix naming
 
 
+###### Comparison of abundance, histogram vs query
 if(FALSE){
   colSums(cnt)
   colSums(cnt>0)
@@ -353,7 +306,6 @@ if(FALSE){
   ck_hist <- kmer_hist[kmer_hist$kmer %in% picked_kmers,]
   ck_hist <- kmer_hist#[kmer_hist$kmer %in% picked_kmers,]
   colnames(ck_hist) <- c("kmer","cnt_hist")
-  
   
   ck_query <- data.frame(
     kmer=colnames(cnt),
@@ -364,24 +316,21 @@ if(FALSE){
   ck_merge <- merge(ck_query, ck_hist)
   ggplot(ck_merge, aes(cnt_q, cnt_hist)) + geom_point() + xlim(0,1e8) #+ ylim(0,1e8)  ######### how can correlation be so bad??
   ggplot(ck_merge, aes(cnt_q0, cnt_hist)) + geom_point() ######### how can correlation be so bad??  ... likely because we don't full depth
-  
-  #colnames(cnt) <- paste0("BASCET_",colnames(cnt)) ### compatibilíty with fragments
 }
 
 
-
+## Load subset of real cells
 sum(rowSums(cnt)>20000)
 adata <- CreateSeuratObject(
   counts = CreateAssayObject(t(cnt[rowSums(cnt)>20000,])),  #cutoff on kmer count
-#  counts = CreateAssayObject(cnt),
   assay = "infokmer"
 )
 
 if(FALSE){
+  ### Alternative subsetting, and binarization
   sum(rowSums(cnt)>20000)
   adata <- CreateSeuratObject(
     counts = CreateAssayObject(t(cnt[rowSums(cnt)>20000,]>0)),
-    #  counts = CreateAssayObject(cnt),
     assay = "infokmer"
   )
   adata
@@ -394,14 +343,13 @@ if(FALSE){
       rowSums(cnt)>20000,
       colSums(cnt)<100000
     ]>0)),
-    #  counts = CreateAssayObject(cnt),
     assay = "infokmer"
   )
   adata  
 }
 
 
-#Add kraken metadata
+##### Add kraken metadata
 kraken_taxid <- readRDS(file.path(bascetRoot,"kraken_metadata.RDS"))
 adata@meta.data <- cbind(adata@meta.data,kraken_taxid[colnames(adata),c("taxid","phylum","class","order","family","genus","species")]) #AddMetaData behaves weirdly!!
 
@@ -416,24 +364,72 @@ ggsave(file.path(plotDir,"info_kmer_depthcor.pdf"), width = 5, height = 5)
 
 adata <- RunUMAP(object = adata, reduction = 'lsi', dims = 1:30, reduction.name = "infokmers_umap")  ## dim 1 affected plenty if binarizing matrix
 
-### Plots
+##### Plots
 DimPlot(object = adata, label = TRUE, group.by = "genus", reduction = "infokmers_umap") #+ NoLegend()
 FeaturePlot(adata, "nCount_infokmer", reduction = "infokmers_umap")
 
 DimPlot(object = adata[,adata$genus=="Bacillus"], label = TRUE, group.by = "genus", reduction = "infokmers_umap") + NoLegend()
-
 DimPlot(object = adata, label = TRUE, reduction = "infokmers_umap") + NoLegend()
 
 
+table(adata$genus) #MOCK: cereibacter dominates plenty!!
 
-
-table(adata$genus) #cereibacter dominates plenty!!
 
 
 
 
 ################################################################################
-################## Analysis of assembled genomes ###############################
+################## Count sketch-based analysis #################################
+################################################################################
+
+#Kneeplot not possible due to cutoff
+if(FALSE){
+  df <- data.frame(
+    depth=sort(decreasing = TRUE,adata$celldepth)
+  )
+  df$index <- 1:nrow(df)
+  ggplot(df, aes(index, depth)) + scale_x_log10() + scale_y_log10() + geom_line()
+}
+
+#Load data as seurat object 
+adata <- BascetLoadCountSketchMatrix(bascetRoot)
+
+#Subset cells
+keep_cells <- adata$celldepth>200000
+sum(keep_cells)
+adata <- adata[,keep_cells]
+
+
+#Add kraken metadata
+kraken_taxid <- readRDS(file.path(bascetRoot,"kraken_metadata.RDS"))
+adata@meta.data <- cbind(adata@meta.data,kraken_taxid[colnames(adata),c("taxid","phylum","class","order","family","genus","species")]) #AddMetaData behaves weirdly!!
+#adata$genus <- kraken_meta[colnames(adata),]$genus
+
+#Non-linear dimensional reduction
+adata <- RunUMAP(adata, dims = 1:ncol(adata@reductions$kmersketch@cell.embeddings), reduction = "kmersketch")  #Searching Annoy index using 1 thread, search_k = 3000 ; can do more
+DimPlot(object = adata, label = TRUE) + NoLegend()
+
+#Plotting
+DimPlot(object = adata, label = TRUE, group.by = "genus") + NoLegend()
+DimPlot(object = adata, label = TRUE, group.by = "species") + NoLegend()
+FeaturePlot(adata, features = "depth")
+
+
+if(FALSE){
+  ## For saliva
+  table_species <- sort(table(adata@meta.data$species))
+  table_genus <- sort(table(adata@meta.data$genus))
+  
+  keep_genus <- setdiff(names(table_genus)[table_genus>10],"Xanthomonas")
+  keep_genus <- setdiff(names(table_genus)[table_genus>100],c("Xanthomonas","Streptococcus"))
+
+  DimPlot(object = adata[,adata$genus %in% keep_genus], label = TRUE, group.by = "genus") #+ NoLegend()
+}
+
+
+
+################################################################################
+######### Analysis of assembled genomes: quast #################################
 ################################################################################
 
 
@@ -471,10 +467,9 @@ ggplot(quast_aggr.df, aes(N50, num_contigs, color=log10(depth))) +
 ggsave(file.path(plotDir,"quast_n50_VS_numContigs.pdf"), width = 5, height = 5)
 
 
-
-###############
-############### Abricate
-###############
+################################################################################
+######### Analysis of assembled genomes: abricate ##############################
+################################################################################
 
 
 abricate <- readRDS(file.path(bascetRoot,"cache_abricate.RDS"))
@@ -484,7 +479,6 @@ abricate <- readRDS(file.path(bascetRoot,"cache_abricate.RDS"))
 cellid_abricate <- abricate[paste0("_",rownames(adata@meta.data)),] #TODO quick hack
 cellid_abricate[is.na(cellid_abricate)] <- 0
 colSums(cellid_abricate) #few left
-#cellid_abricate
 
 for(i in 1:ncol(cellid_abricate)) {
   print(i)
@@ -492,11 +486,12 @@ for(i in 1:ncol(cellid_abricate)) {
 }
 
 
-
+###############################################
+#' TODO generalize this
+#' 
 BascetAddSeuratMetadataDF <- function(adata, newmeta, prefix=NULL, default_val="NA") {
   
   colnames(newmeta) <- stringr::str_replace_all(colnames(newmeta), stringr::fixed(" "),"_")
-#  colnames(newmeta)
   newmeta <- newmeta[rownames(adata@meta.data),]
   newmeta[is.na(newmeta)] <- default_val  ### hmmmm...
   
@@ -516,11 +511,10 @@ BascetAddSeuratMetadataDF <- function(adata, newmeta, prefix=NULL, default_val="
   adata
 }
 
-
+##### Plotting of results
 if(TRUE){
   
-  ################### MOCK COMMUNITY
-  
+  ##### MOCK COMMUNITY
   
   #one cluster: bacillus
   if(FALSE){
@@ -598,20 +592,19 @@ table(adata@meta.data[,c(
 )
   
 
-###############
-############### FASTQC
-###############
+################################################################################
+######### Analysis of reads: FASTQC ############################################
+################################################################################
 
 aggr_fastqc <- readRDS(file.path(bascetRoot,"cache_fastqc.RDS"))
-
 
 fastqc_stat_passfail_r1 <- GetFASTQCpassfailStats(aggr_fastqc, "1")  #saliva got _ here; need to remove
 
 rownames(fastqc_stat_passfail_r1) <- stringr::str_sub(rownames(fastqc_stat_passfail_r1),2)  #hack for saliva
-colnames(adata)
 
 adata <- BascetAddSeuratMetadataDF(adata, fastqc_stat_passfail_r1, prefix = "fastqc")
 
+################### Plotting
 if(FALSE){
   FeaturePlot(adata, features = "fastqc_Per sequence GC content", reduction = "kraken_umap", label = TRUE) 
   FeaturePlot(adata, features = "fastqc_Sequence Duplication Levels", reduction = "kraken_umap", label = TRUE) 
@@ -627,29 +620,8 @@ DimPlot(adata, group.by = "fastqc_Adapter_Content", reduction = "kraken_umap", l
 ggsave(file.path(plotDir,"fastqc_fastqc_pf_adaptercontent.pdf"), width = 5, height = 5)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ################################################################################
-################## Host % DNA ##################################################
+######### Analysis of reads: Host% DNA ######################################### saliva only. overestimates!
 ################################################################################
 
 
@@ -681,66 +653,5 @@ ggsave(file.path(plotDir,"host_fraction.pdf"), width = 3, height = 4)
 #bascet discards such reads ... store in some matrix too?
 
 
-
-
-
-
-
-
-
-
-
-
-################################################################################
-################## Count sketch-based analysis #################################
-################################################################################
-
-#Kneeplot not possible due to cutoff
-if(FALSE){
-  df <- data.frame(
-    depth=sort(decreasing = TRUE,adata$celldepth)
-  )
-  df$index <- 1:nrow(df)
-  ggplot(df, aes(index, depth)) + scale_x_log10() + scale_y_log10() + geom_line()
-}
-
-#Load data as seurat object 
-adata <- BascetLoadCountSketchMatrix(bascetRoot)
-
-#Subset cells
-keep_cells <- adata$celldepth>200000
-sum(keep_cells)
-adata <- adata[,keep_cells]
-
-
-#Add kraken metadata
-kraken_taxid <- readRDS(file.path(bascetRoot,"kraken_metadata.RDS"))
-adata@meta.data <- cbind(adata@meta.data,kraken_taxid[colnames(adata),c("taxid","phylum","class","order","family","genus","species")]) #AddMetaData behaves weirdly!!
-#adata$genus <- kraken_meta[colnames(adata),]$genus
-
-#Non-linear dimensional reduction
-adata <- RunUMAP(adata, dims = 1:ncol(adata@reductions$kmersketch@cell.embeddings), reduction = "kmersketch")  #Searching Annoy index using 1 thread, search_k = 3000 ; can do more
-DimPlot(object = adata, label = TRUE) + NoLegend()
-
-#Plotting
-DimPlot(object = adata, label = TRUE, group.by = "genus") + NoLegend()
-DimPlot(object = adata, label = TRUE, group.by = "species") + NoLegend()
-FeaturePlot(adata, features = "depth")
-
-
-if(FALSE){
-  
-  ## For saliva
-  
-  table_species <- sort(table(adata@meta.data$species))
-  table_genus <- sort(table(adata@meta.data$genus))
-  
-  keep_genus <- setdiff(names(table_genus)[table_genus>10],"Xanthomonas")
-  keep_genus <- setdiff(names(table_genus)[table_genus>100],c("Xanthomonas","Streptococcus"))
-  
-  
-  DimPlot(object = adata[,adata$genus %in% keep_genus], label = TRUE, group.by = "genus") #+ NoLegend()
-  
-}
 
 

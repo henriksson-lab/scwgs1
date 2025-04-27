@@ -147,7 +147,7 @@ system("echo END BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
 system("echo START BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
 BascetCountChrom(
   bascetRoot,
-  runner=SlurmRunner(bascet_runner, ncpu="2")
+  runner=SlurmRunner(bascet_runner.default, ncpu="2") ################################# todo save in temporary pos, then move
 )
 system("echo END BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
 
