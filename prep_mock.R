@@ -1,9 +1,7 @@
 bascetRoot <- getwd()
 
 if(TRUE){
-
   setwd("~/github/zorn")
-
   source("R/job_general.R")
   source("R/job_local.R")
   source("R/job_slurm.R")
@@ -17,66 +15,64 @@ if(TRUE){
   source("R/kraken.R")
   source("R/container.R")
   source("R/ext_tools.R")
-
 } else {
-
   library(Zorn)
-
 }
 
 bascet_instance.default <- getBascetSingularityImage(store_at="~/mystore/")
 bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
 #####bascet_runner <- LocalRunner(direct = TRUE, show_script=TRUE)
 
-
 setwd(bascetRoot)
 
-###################################################
-################################################### debarcode
-###################################################
+################################################################################
+############################### Debarcode ######################################
+################################################################################
 
-rawmeta_dir <- readLines("rawdata.txt")
-rawmeta <- DetectRawFileMeta(rawmeta_dir)
-
-barcode_error <- NULL
-
-if(file.exists("barcode_error.txt")) {
-  barcode_error <- readLines("barcode_error.txt")
-}
-
-
-
-system("echo START BascetGetRaw >> time.txt; echo `date +%s` >> time.txt")
-BascetGetRaw(
+if(file.exists("rawdata.txt")) {
+  rawmeta_dir <- readLines("rawdata.txt")
+  rawmeta <- DetectRawFileMeta(rawmeta_dir)
+  
+  #Decide on barcode error tolerance
+  barcode_error <- NULL
+  if(file.exists("barcode_error.txt")) {
+    barcode_error <- readLines("barcode_error.txt")
+  }
+  
+  system("echo START BascetGetRaw >> time.txt; echo `date +%s` >> time.txt")
+  BascetGetRaw(
     bascetRoot,
     rawmeta
-)
-system("echo END BascetGetRaw >> time.txt; echo `date +%s` >> time.txt")
+  )
+  system("echo END BascetGetRaw >> time.txt; echo `date +%s` >> time.txt")
+}
 
-###################################################
-################################################### shardify
-###################################################
+################################################################################
+############################### Shardify #######################################
+################################################################################
 
-### Decide cells to include
-h <- ReadHistogram(bascetRoot,"debarcoded")
-#includeCells <- h$cellid[h$count>10]       ########### 10 for miseq
-includeCells <- h$cellid[h$count>100]       ########### 10 for miseq
-length(includeCells)
-
-### Shardify i.e. divide into multiple sets of files for parallel processing.
-# this command will spawn many processes, as it does random I/O on the input files
-system("echo START BascetShardify >> time.txt; echo `date +%s` >> time.txt")
-BascetShardify(
-  bascetRoot,
-  includeCells = includeCells,
-  #num_output_shards = 5, ############### 10,
-  #num_output_shards = 10,
-  num_output_shards = 20,
-  runner=SlurmRunner(bascet_runner.default, ncpu="4")  #not much CPU needed. increased for memory demands
-)
-system("echo END BascetShardify >> time.txt; echo `date +%s` >> time.txt")
-
-
+if(file.exists("rawdata.txt")) {
+  
+  ### Decide cells to include
+  h <- ReadHistogram(bascetRoot,"debarcoded")
+  #includeCells <- h$cellid[h$count>10]       ########### 10 for miseq
+  includeCells <- h$cellid[h$count>100]       ########### 10 for miseq
+  length(includeCells)
+  
+  ### Shardify i.e. divide into multiple sets of files for parallel processing.
+  # this command will spawn many processes, as it does random I/O on the input files
+  system("echo START BascetShardify >> time.txt; echo `date +%s` >> time.txt")
+  BascetShardify(
+    bascetRoot,
+    includeCells = includeCells,
+    #num_output_shards = 5, ############### 10,
+    #num_output_shards = 10,
+    num_output_shards = 20,
+    runner=SlurmRunner(bascet_runner.default, ncpu="4")  #not much CPU needed. increased for memory demands
+  )
+  system("echo END BascetShardify >> time.txt; echo `date +%s` >> time.txt")
+  
+}
 
 ### Get reads in fastq format for BWA
 system("echo START asfq >> time.txt; echo `date +%s` >> time.txt")
@@ -89,10 +85,6 @@ BascetMapTransform(
 )
 system("echo END asfq >> time.txt; echo `date +%s` >> time.txt")
 
-
-
-
-
 ### Get reads in fastq format for BWA
 system("echo START fastp >> time.txt; echo `date +%s` >> time.txt")
 BascetRunFASTP(
@@ -103,8 +95,6 @@ BascetRunFASTP(
 )
 system("echo END fastp >> time.txt; echo `date +%s` >> time.txt")
 
-
-
 system("echo START totirp >> time.txt; echo `date +%s` >> time.txt")
 BascetMapTransform(
   bascetRoot,
@@ -114,14 +104,9 @@ BascetMapTransform(
 )
 system("echo END totirp >> time.txt; echo `date +%s` >> time.txt")
 
-
-
-
 ################################################################################
 ################## Alignment ###################################################
 ################################################################################
-
-
 
 ### Perform alignment
 system("echo START BascetAlignToReference >> time.txt; echo `date +%s` >> time.txt")
@@ -132,8 +117,6 @@ BascetAlignToReference(
 )
 system("echo END BascetAlignToReference >> time.txt; echo `date +%s` >> time.txt")
 
-
-
 ### Generate fragments BED file suited for quantifying reads/chromosome using Signac later -- this is a wrapper for mapshard
 system("echo START BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
 BascetBam2Fragments(
@@ -141,7 +124,6 @@ BascetBam2Fragments(
   runner=SlurmRunner(bascet_runner, ncpu="2")
 )
 system("echo END BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
-
 
 ### Count reads per chromosome
 system("echo START BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
@@ -151,16 +133,9 @@ BascetCountChrom(
 )
 system("echo END BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
 
-
-
-
-
-
-
 ################################################################################
 ################## Preprocessing with KRAKEN ###################################
 ################################################################################
-
 
 ### Run Kraken on each cell
 system("echo START BascetRunKraken >> time.txt; echo `date +%s` >> time.txt")
@@ -202,14 +177,9 @@ BascetGatherCountSketch(
 )
 system("echo END BascetGatherCountSketch >> time.txt; echo `date +%s` >> time.txt")
 
-
-
-
 ################################################################################
 ################## Informative KMER ############################################
 ################################################################################
-
-
 
 ### Compute minhashes for each cell
 system("echo START BascetComputeMinhash >> time.txt; echo `date +%s` >> time.txt")
@@ -227,12 +197,7 @@ BascetMakeMinhashHistogram(
 )
 system("echo END BascetMakeMinhashHistogram >> time.txt; echo `date +%s` >> time.txt")
 
-
-### Pick KMERs
-#kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
-#useKMERs <- kmer_hist$kmer[kmer_hist$cnt>5]
-
-## Build count table by looking up selected KMERs in per-cell KMER databases
+### Build count table by looking up selected KMERs in per-cell KMER databases
 if(file.exists("use_kmers.txt")){
  useKMERs <- readLines("use_kmers.txt")
 
@@ -244,16 +209,9 @@ if(file.exists("use_kmers.txt")){
  system("echo END BascetQueryFq >> time.txt; echo `date +%s` >> time.txt")
 }
 
-
-
-
-
-
 ################################################################################
 ################## De novo Assembly ############################################
 ################################################################################
-
-
 
 ### Assemble all genomes
 system("echo START skesa >> time.txt; echo `date +%s` >> time.txt")
@@ -265,9 +223,6 @@ BascetMapCell(
 )
 system("echo END skesa >> time.txt; echo `date +%s` >> time.txt")
 
-
-
-
 ### quast QC
 system("echo START quast >> time.txt; echo `date +%s` >> time.txt")
 BascetMapCell(
@@ -277,9 +232,6 @@ BascetMapCell(
   outputName = "quast"
 )
 system("echo END quast >> time.txt; echo `date +%s` >> time.txt")
-
-
-
 
 ### abricate QC
 system("echo START abricate >> time.txt; echo `date +%s` >> time.txt")
@@ -300,6 +252,5 @@ BascetMapCellFASTQC(
   inputName = "new_filtered"  # todo make mapcell work on fastq as input too
 )
 system("echo END BascetMapCellFASTQC >> time.txt; echo `date +%s` >> time.txt")
-
 
 
