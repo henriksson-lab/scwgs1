@@ -470,13 +470,13 @@ if(file.exists(p_minh)) {
 ################## informative KMER-analysis - umap etc ########################
 ################################################################################
 
-666
 
 ### Read count matrix
 cnt <- ReadBascetCountMatrix(  #  x[.,.] <- val : x being coerced from Tsparse* to CsparseMatrix  ---- do this conversion manually
   bascetRoot,
   "kmer_counts"
 ) 
+cnt <- cnt$X
 dim(cnt)
 #rownames(cnt) <- paste0("_",rownames(cnt))  #### todo fix naming
 
@@ -640,6 +640,8 @@ FeaturePlot(adata, features = "log10_celldepth") + xlab("CS1") + ylab("CS2")
 ggsave(file.path(plotDir,"umap_countsketch_logkmer.pdf"), width = 7, height = 7)
 
 
+
+
 ################################################################################
 ######### Analysis of assembled genomes: quast #################################
 ################################################################################
@@ -673,33 +675,41 @@ quast_aggr.df <- quast_aggr.df[!is.na(quast_aggr.df$depth),]
 #### Plotting
 #### 
 
-ggplot(quast_aggr.df, aes(tot_length, largest_contig, color=log10(depth))) +  
+p1 <- ggplot(quast_aggr.df, aes(tot_length, largest_contig, color=log10(depth))) +  
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   xlab("Total contig length") + 
   ylab("Largest contig")
-ggsave(file.path(plotDir,"quast_totlen_VS_largestContig.png"), width = 5, height = 5)
+p1
+ggsave(plot = p1, file.path(plotDir,"quast_totlen_VS_largestContig.png"), width = 5, height = 5)
 
-ggplot(quast_aggr.df, aes(tot_length, num_contigs, color=log10(depth))) + 
+p2 <- ggplot(quast_aggr.df, aes(tot_length, num_contigs, color=log10(depth))) + 
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   xlab("Total contig length") + 
   ylab("Number of contigs")
-ggsave(file.path(plotDir,"quast_totlen_VS_numContigs.png"), width = 5, height = 5)
+p2
+ggsave(plot = p2, file.path(plotDir,"quast_totlen_VS_numContigs.png"), width = 5, height = 5)
 
-ggplot(quast_aggr.df, aes(N50, num_contigs, color=log10(depth))) + 
+p3 <- ggplot(quast_aggr.df, aes(N50, num_contigs, color=log10(depth))) + 
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   xlab("N50") +  #N50 ~ weighted median statistic such that 50% of the entire assembly is contained in contigs or scaffolds equal to or larger than this value.
   ylab("Number of contigs")
-ggsave(file.path(plotDir,"quast_n50_VS_numContigs.png"), width = 5, height = 5)
+p3
+ggsave(plot = p3, file.path(plotDir,"quast_n50_VS_numContigs.png"), width = 5, height = 5)
 
+
+
+ptot <- egg::ggarrange(p1,p2,p3, nrow=1)
+ggsave(plot = ptot, file.path(plotDir,"quast_allqc.png"), width = 12, height = 3)
+ggsave(plot = ptot, file.path(plotDir,"quast_allqc.svg"), width = 12, height = 3)
 
 ################################################################################
 ######### Analysis of assembled genomes: abricate ##############################
@@ -818,188 +828,6 @@ ggsave(file.path(plotDir,"umap_kraken_fastqc_GC.pdf"), width = 5, height = 5)
 
 
 
-################################################################################
-######### Analysis of reads: Host% DNA ######################################### saliva only. overestimates!
-################################################################################
-
-
-dat <- read.table(file.path(bascetRoot,"alignment_stats.csv"),sep="\t")
-colnames(dat) <- c("chrom","seqlen","count","count2")
-dat$organism <- "Human"
-dat$organism[stringr::str_starts(dat$chrom,stringr::fixed("NZ_"))] <- "Xanthomonas"
-dat$organism[dat$chrom=="*"] <- "Unmapped"
-#dat$organism[dat$organism=="*"] <- "Unmapped"
-
-dat$count[dat$organism=="Unmapped"] <- dat$count2[dat$organism=="Unmapped"]
-
-dat_cnt <- sqldf::sqldf("select sum(count) as count, organism from dat group by organism")
-dat_cnt$frac <- dat_cnt$count / sum(dat_cnt$count) *100
-
-
-ggplot(dat_cnt, aes(frac, organism)) + 
-  geom_bar(stat = "identity") + 
-  coord_flip() + 
-  theme_bw() +
-  xlab("% reads") + 
-  ylab("")
-
-ggsave(file.path(plotDir,"host_fraction.pdf"), width = 3, height = 4)
-
-
-
-#TODO: which cell has the most unclassified reads? id=0. does bascet care?
-#bascet discards such reads ... store in some matrix too?
-
-
-
-
-
-################################################################################
-######### Coverage of cell #####################################################
-################################################################################
-
-#Z_bam2fragments  -
-
-# Take top cell, show typical coverage
-# Do subsampling analysis, coverage vs depth
-
-
-#adata from alignment analysis must be loaded. novaseq1
-
-
-
-plot(sort(as.double(adata$nCount_chrom_cnt[adata$species_aln_short=="Escherichia coli"])))
-
-onemat <- ReadBascetCountMatrix_one(file.path(bascetRoot,"chromcount.1.h5"), verbose=FALSE)
-rownames(onemat)
-
-### Pick cells to analyze
-submeta <- adata@meta.data[colnames(adata) %in% rownames(onemat),]
-set.seed(666)
-ind_samples <- sample(1:nrow(submeta), prob = submeta$nCount_chrom_cnt, size = 20)
-submeta <- submeta[ind_samples,]
-submeta <- submeta[order(submeta$nCount_chrom_cnt),]
-submeta
-table(submeta$species_aln_short)
-
-
-### For each cell
-list_alldf <- list()
-for(cur_cell_num in 1:nrow(submeta)){
-  
-  ## Get the aligned reads for this cell
-  cellid <- rownames(submeta)[cur_cell_num]
-  lines_for_cell <- system(paste("grep",cellid,"/husky/henriksson/atrandi/v4_wgs_novaseq1/unsorted_aligned.1.bed"), intern = TRUE)
-  zz <- textConnection(lines_for_cell)
-  cellbedfile <- read.table(zz)[,1:3]
-  close(zz)
-  colnames(cellbedfile) <- c("seqname","start","end")
-  
-  ## For simplicity, we only consider the major chromosome
-  cellbedfile <- cellbedfile[cellbedfile$seqname == names(sort(table(cellbedfile$seqname), decreasing = TRUE))[1],]
-  
-  ## Figure out length of chromosome
-  len_of_chrom <- map_seq2strain$len[stringr::str_replace_all(map_seq2strain$id,"-","_")==cellbedfile$seqname[1]]
-  cellid_strain <- map_seq2strain$strain[stringr::str_replace_all(map_seq2strain$id,"-","_")==cellbedfile$seqname[1]]
-  
-  ## Subsample reads
-  for(frac in pracma::logseq(0.001, 1, n = 30)) {
-    print(paste(cur_cell_num,cellid,frac))  #future: can set max 20x coverage
-
-    ###### Actual coverage
-    
-    ## Compute overlaps
-    sampled_cellbedfile <- cellbedfile[sample(1:nrow(cellbedfile),size=round(nrow(cellbedfile)*frac)),]
-    gr <- makeGRangesFromDataFrame(sampled_cellbedfile) #cellbedfile[sample(1:nrow(cellbedfile),size=round(nrow(cellbedfile)*frac)),])
-    grcov <- coverage(gr)[[1]]
-    unique_read_cov <- sum(grcov@lengths[grcov@values>0])
-    tot_read_cov <- sum(gr@ranges@width)
-
-    ###### Theoretically best coverage
-
-    #Bootstrap coordinates
-    #sampled_cellbedfile <- cellbedfile[sample(1:nrow(cellbedfile),size=round(nrow(cellbedfile)*frac)),]
-    sampled_cellbedfile$length <- sampled_cellbedfile$end - sampled_cellbedfile$start
-    sampled_cellbedfile$start <- round(runif(nrow(sampled_cellbedfile),min = 1, max = len_of_chrom - sampled_cellbedfile$length))
-    sampled_cellbedfile$end <- sampled_cellbedfile$start + sampled_cellbedfile$length
-    
-    ## Compute overlaps
-    gr <- makeGRangesFromDataFrame(sampled_cellbedfile)
-    grcov <- coverage(gr)[[1]]
-    sim_unique_read_cov <- sum(grcov@lengths[grcov@values>0])
-    sim_tot_read_cov <- sum(gr@ranges@width)
-    
-    onedf <- data.frame(
-      cellid=cellid,
-      strain=cellid_strain,
-      num_read=length(gr),
-      len_of_chrom=len_of_chrom,
-      
-      unique_read_cov=unique_read_cov/len_of_chrom,
-      tot_read_cov=tot_read_cov/len_of_chrom,
-      
-      sim_unique_read_cov=sim_unique_read_cov/len_of_chrom,
-      sim_tot_read_cov=sim_tot_read_cov/len_of_chrom  #should be the same? almost.
-    )
-    
-    list_alldf[[paste(cellid,frac)]] <- onedf
-  }  
-}
-alldf <- do.call(rbind, list_alldf)
-
-if(FALSE){
-  ggplot(alldf, aes(tot_read_cov, unique_read_cov,group=cellid, color=strain)) + 
-    geom_line() + 
-    theme_bw() +
-    scale_x_log10() +
-    xlab("x Coverage") +
-    ylab("Fraction of overlapped genome")
-  
-  
-  ggplot(alldf, aes(num_read, unique_read_cov,group=cellid, color=strain)) + 
-    geom_line() + 
-    theme_bw() +
-    xlab("Number of reads") +
-    ylab("Fraction of overlapped genome")
-  #strain
-  
-  
-  ###
-  ggplot(alldf, aes(sim_tot_read_cov, sim_unique_read_cov,group=cellid, color=strain)) + 
-    geom_line() + 
-    theme_bw() +
-    scale_x_log10() +
-    xlab("Bootstrapped, x Coverage") +
-    ylab("Bootstrapped, fraction of overlapped genome")
-  
-}
-
-### Make a plot with combined efficiencies, and optimal efficiency
-#alldf[which.max(alldf$tot_read_cov),]
-cellid_max_cov <- alldf[which.max(alldf$tot_read_cov),]$cellid
-df_with_sim <- rbind(
-  alldf[,c("tot_read_cov","unique_read_cov","cellid","strain")],
-  data.frame(
-    tot_read_cov=alldf$sim_tot_read_cov[alldf$cellid==cellid_max_cov],
-    unique_read_cov=alldf$sim_unique_read_cov[alldf$cellid==cellid_max_cov],
-    cellid="Optimal sample",
-    strain="Optimal sample"
-  )
-)
-ggplot(df_with_sim, aes(tot_read_cov, unique_read_cov,group=cellid, color=strain)) + 
-  geom_line() + 
-  theme_bw() +
-#  scale_x_log10() +
-  xlim(0,50) +
-  xlab("x Coverage") +
-  ylab("Fraction of overlapped genome")
-ggsave(file.path(plotDir,"coverage_saturation.pdf"), width = 15, height = 3)
-
-
-
-
-
-
 
 
 
@@ -1038,303 +866,8 @@ ggsave(file.path(plotDirAll, "biascomparison.svg"), width = 7, height = 3)
 
 
 ################################################################################
-########################## Alignment combined plot #############################
-################################################################################
-
-adata1 <- readRDS(file.path("/husky/henriksson/atrandi//v4_wgs_novaseq1","cache_adata_align.RDS"))
-adata3 <- readRDS(file.path("/husky/henriksson/atrandi//v4_wgs_novaseq3","cache_adata_align.RDS"))
-
-adata <- merge(adata1,adata3)
-
-if(FALSE){
-  #ATAC-seq style. think not the best way here
-  adata <- RunTFIDF(adata)
-  adata <- FindTopFeatures(adata, min.cutoff = 'q0')
-  adata <- RunSVD(adata)
-  DepthCor(adata)
-  adata <- RunUMAP(object = adata, reduction = 'lsi', dims = 1:(nrow(adata)-1), reduction.name = "chrom_umap")  ## depth seems to be less of a problem here
-} else {
-  #RNA-seq style
-  adata <- NormalizeData(adata)
-  adata <- FindVariableFeatures(adata, selection.method = "vst", nfeatures = nrow(adata))
-  adata <- ScaleData(adata, features = rownames(adata))
-  adata <- RunPCA(adata, features = VariableFeatures(object = adata))
-  adata <- RunUMAP(adata, dims = 1:(nrow(adata)-1), reduction.name = "chrom_umap")
-}
-
-### Plotting - max species per cell
-DimPlot(object = adata, label = TRUE, group.by = "species_aln_short") + 
-  xlab("BWA1") + 
-  ylab("BWA2") + 
-  ggtitle("") 
-ggsave(file.path(plotDirAll,"combined_umap_alignment_species.pdf"), width = 7, height = 5)
-
-
-
-
-
-
-################################################################################
-########################## Fig 3 umap matrix ###################################
-################################################################################
-
-
-#adata1 <- readRDS(file.path("/husky/henriksson/atrandi//v4_wgs_novaseq1","cache_adata_align.RDS"))
-
-######### 
-######### simulated mock data
-######### 
-bdata1 <- readRDS("/husky/henriksson/atrandi/simulated4/cache_adata_align.RDS")
-bdata2 <- readRDS("/husky/henriksson/atrandi/simulated4/cache_adata_kraken.RDS")
-bdata3 <- readRDS("/husky/henriksson/atrandi/simulated4/cache_adata_infokmer.RDS")
-bdata4 <- readRDS("/husky/henriksson/atrandi/simulated4/cache_adata_cs.RDS")
-
-colnames(bdata1) <- str_remove(colnames(bdata1),"BASCET_")
-
-#take cell names from bdata1
-bdata2$species_aln_short <- bdata1@meta.data[colnames(bdata2),]$species_aln_short
-bdata3$species_aln_short <- bdata1@meta.data[colnames(bdata3),]$species_aln_short
-bdata4$species_aln_short <- bdata1@meta.data[colnames(bdata4),]$species_aln_short
-
-######### 
-######### real mock data
-######### 
-
-adata1 <- readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq3/cache_adata_align.RDS")
-adata2 <- readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq3/cache_adata_kraken.RDS")
-adata3 <- readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq3/cache_adata_infokmer.RDS")
-adata4 <- readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq3/cache_adata_cs.RDS")
-
-adata1 <- adata1[,adata1$nCount_chrom_cnt>5000] #removes a lot of crap
-
-colnames(adata1) <- str_remove(colnames(adata1),"BASCET_")
-
-
-#take cell names from adata1
-adata2$species_aln_short <- adata1@meta.data[colnames(adata2),]$species_aln_short
-adata3$species_aln_short <- adata1@meta.data[colnames(adata3),]$species_aln_short
-adata4$species_aln_short <- adata1@meta.data[colnames(adata4),]$species_aln_short
-
-
-
-do_label <- FALSE
-a_p1 <- DimPlot(object = adata1, label = do_label, group.by = "species_aln_short") + 
-  xlab("BWA1") + ylab("BWA2") + 
-  ggtitle("") 
-
-a_p2 <- DimPlot(object = adata2[,!is.na(adata2$species_aln_short)], label = do_label, group.by = "species_aln_short") + 
-  xlab("KRAKEN1") + ylab("KRAKEN2") + 
-  ggtitle("") 
-
-a_p3 <- DimPlot(object = adata3[,!is.na(adata3$species_aln_short)], label = do_label, group.by = "species_aln_short") + #one cluster is a bit meah
-  xlab("INFOKMER1") + ylab("INFOKMER2") + 
-  ggtitle("") 
-
-a_p4 <- DimPlot(object = adata4[,!is.na(adata4$species_aln_short)], label = do_label, group.by = "species_aln_short") + 
-  xlab("CS1") + ylab("CS2") + 
-  ggtitle("") 
-
-
-
-
-
-b_p1 <- DimPlot(object = bdata1, label = do_label, group.by = "species_aln_short") + 
-  xlab("BWA1") + ylab("BWA2") + 
-  ggtitle("") 
-
-b_p2 <- DimPlot(object = bdata2[,!is.na(bdata2$species_aln_short)], label = do_label, group.by = "species_aln_short") + 
-  xlab("KRAKEN1") + ylab("KRAKEN2") + 
-  ggtitle("") 
-
-b_p3 <- DimPlot(object = bdata3[,!is.na(bdata3$species_aln_short)], label = do_label, group.by = "species_aln_short") + #one cluster is a bit meah
-  xlab("INFOKMER1") + ylab("INFOKMER2") + 
-  ggtitle("") 
-
-b_p4 <- DimPlot(object = bdata4[,!is.na(bdata4$species_aln_short)], label = do_label, group.by = "species_aln_short") + 
-  xlab("CS1") + ylab("CS2") + 
-  ggtitle("") 
-
-
-#ptot <- egg::ggarrange(p1,p2,p3,p4, nrow=1)
-
-ptot <- egg::ggarrange(
-  b_p1+theme(legend.position = "none"),
-  b_p2+theme(legend.position = "none"),
-  b_p3+theme(legend.position = "none"),
-  b_p4+theme(legend.position = "none"),
-
-  a_p1+theme(legend.position = "none"),
-  a_p2+theme(legend.position = "none"),
-  a_p3+theme(legend.position = "none"),
-  a_p4+theme(legend.position = "none"),
-  
-  nrow=2)
-ptot
-ggsave(plot = ptot, file.path(plotDirAll, "fig3_umaps.svg"), width = 16, height = 8)
-
-
-
-
-
-
-ptot <- egg::ggarrange(
-  b_p1+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  b_p2+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  b_p3+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  b_p4+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  
-  a_p1+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  a_p2+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  a_p3+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  a_p4+theme(legend.position = "none")+theme(axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank())+xlab("")+ylab(""),
-  
-  nrow=2)
-ptot
-ggsave(plot = ptot, file.path(plotDirAll, "fig3_umaps.png"), width = 16, height = 8)
-ggsave(plot = ptot, file.path(plotDirAll, "fig3_umaps.png"), width = 16*0.5, height = 8*0.5)
-
-
-
-
-
-### put numbers 1...10 on the cluster?
-
-FeaturePlot(object = adata1, features = "nCount_species_cnt") + 
-  xlab("BWA1") + ylab("BWA2") + 
-  ggtitle("") 
-
-
-
-##### TODO DE kmers, for info kmer. can we improve separation?
-
-
-
-
-################################################################################
-################# Fig 2 kneeplots for different lysis ########################## per species
-################################################################################
-
-
-adata1 <- readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq1/cache_adata_align.RDS")
-DefaultAssay(adata1) <- "species_cnt"
-
-adata2 <- readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq2/cache_adata_align.RDS")
-DefaultAssay(adata2) <- "species_cnt"
-
-adata3 <- readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq3/cache_adata_align.RDS")
-DefaultAssay(adata3) <- "species_cnt"
-
-  
-
-
-
-p1 <- KneeplotPerSpecies(adata1) + scale_color_manual(values = list_color_mock)
-p2 <- KneeplotPerSpecies(adata2) + scale_color_manual(values = list_color_mock)
-p3 <- KneeplotPerSpecies(adata3) + scale_color_manual(values = list_color_mock)
-
-ptot <- egg::ggarrange(
-  p1,p2,p3,
-  nrow=1)
-ptot
-
-ggsave(plot = ptot, file.path(plotDirAll, "fig2_strain_kneeplots.svg"), width = 20, height = 4)
-
-
-
-################################################################################
-################# Fig 2 kneeplots for different lysis ########################## all species as a whole
-################################################################################
-
-p1 <- plot_one_kneeplot_all(adata1)
-p2 <- plot_one_kneeplot_all(adata2)
-p3 <- plot_one_kneeplot_all(adata3)
-
-ptot <- egg::ggarrange(
-  p1,p2,p3,
-  nrow=1)
-ptot
-
-ggsave(plot = ptot, file.path(plotDirAll, "fig2_allread_kneeplots.svg"), width = 8, height = 3)
-
-
-
-################################################################################
-################# Fig 2 count per species ########################## 
-################################################################################
-
-#10k reads make sense?
-
-df <- rbind(
-  data.frame(
-    species=adata1@meta.data$species_aln[adata1$nCount_species_cnt>10000],
-    rnd=1
-  ),
-  data.frame(
-    species=adata2@meta.data$species_aln[adata2$nCount_species_cnt>10000],
-    rnd=2
-  ),
-  data.frame(
-    species=adata3@meta.data$species_aln[adata3$nCount_species_cnt>10000],
-    rnd=3
-  )
-)
-
-#df <- data.frame(species=adata3@meta.data$species_aln[adata3$nCount_species_cnt>10000])
-
-lysiseff <- merge(
-  sqldf::sqldf("select species, rnd, count(*) as cnt from df group by species, rnd"),
-  sqldf::sqldf("select rnd, count(*) as cnt_tot from df group by rnd")
-)
-lysiseff$frac <- lysiseff$cnt / lysiseff$cnt_tot * 100
-ggplot(lysiseff, aes(frac, species, fill=paste("",rnd))) + 
-  geom_bar(stat="identity", position="dodge", position = position_fill(reverse = TRUE))
-
-
-plot_one_speciesfrac <- function(adata1){
-  df <- data.frame(species=adata1@meta.data$species_aln[adata1$nCount_species_cnt>10000])
-  df <- sqldf::sqldf("select species, count(*) as cnt from df group by species")
-  df$frac <- df$cnt / sum(df$cnt) * 100
-  df$species <- stringr::str_split_i(df$species," \\(",1)
-  #df
-  
-  df$gram <- "pos"
-  df$gram[stringr::str_detect(df$species,"coli")] <- "neg"
-  df$gram[stringr::str_detect(df$species,"sphaer")] <- "neg"
-  
-  df$species <- fct_rev(df$species)
-  #levels(df$species) <- stringr::str_split_i(levels(df$species)," \\(",1)
-  
-  ggplot(df, aes(species, frac, fill=gram)) + 
-    geom_bar(stat="identity") +   #, position = position_stack(reverse = TRUE)
-    coord_flip() + 
-    ylab("Fraction %") +
-    xlab("Species") +
-    theme_bw() #position = position_fill(reverse = TRUE)
-}
-
-
-ptot <- egg::ggarrange(
-  plot_one_speciesfrac(adata1),
-  plot_one_speciesfrac(adata2),
-  plot_one_speciesfrac(adata3),
-  nrow=1)
-ptot
-ggsave(plot = ptot, file.path(plotDirAll, "fig2_allread_kneeplots.svg"), width = 16, height = 3)
-
-#sqldf::sqldf("select rnd, count(*) as cnt_tot from df group by rnd")
-
-
-
-
-
-
-
-
-
-################################################################################
 ##################### saliva per species kneeplot ##############################
 ################################################################################
-
 
 adata <- readRDS(file.path(bascetRoot,"cache_adata_kraken.RDS"))
 
@@ -1342,38 +875,11 @@ KrakenKneePlot(adata, groupby = "genus", show_num_spec=20)
 ggsave(file.path(plotDirAll, "kraken_saliva_kneeplot_per_genus.pdf"), width=7, height=7, limitsize=FALSE)
 
 
+KrakenKneePlot(adata, groupby = "species", show_num_spec=10)
+#Streptococcus gordonii
+
+
 sort(unique(adata$species))
 
 
-
-################################################################################
-##################### Output assembly for each cell ############################
-################################################################################
-
-#/etc/singularity/singularity.conf 
-#mount hostfs = yes
-
-
-#bascet_instance <- getBascetDockerImage("/Users/mahogny/Desktop/rust/bascet/docker_image")  #return ok on linux. wtf?
-bascet_instance <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity")
-TestBascetInstance(bascet_instance)
-
-# for all skesa*zip
-
-"/husky/henriksson/atrandi/v4_wgs_saliva1/skesa.1.zip"
-#3318  2025-04-19 10:13   H3_H5_F8_E11/contigs.fa
-
-skesa_file <- OpenBascet(bascetRoot, "skesa", bascet_instance)
-
-#extractstreamer_ls(skesa_file@streamer)
-#extractstreamer_open(skesa_file@streamer,"/husky/henriksson/atrandi/v4_wgs_saliva1/skesa.1.zip") #skesa_file@files[1])
-#skesa_file@files[1]
-BascetListFilesForCell(skesa_file, list_cells[20], bascet_instance = bascet_instance)
-
-list_cells <- colnames(pbmc)
-
-BascetReadFile(
-  skesa_file,cellID = list_cells[1], filename = "contigs.fa",
-  as="text", verbose = TRUE
-)
 
