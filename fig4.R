@@ -118,8 +118,8 @@ plotlevel <- "phylum"
 
 adata <- readRDS("/husky/henriksson/atrandi/v4_wgs_saliva1/cache_adata_kraken.RDS")
 
-show_num_spec <- 100
-KrakenKneePlot(adata, groupby = "phylum", show_num_spec=show_num_spec, sortbyname=TRUE) + 
+showNumSpecies <- 100
+KrakenKneePlot(adata, groupby = "phylum", showNumSpecies=showNumSpecies, sortByName=TRUE) + 
   scale_color_manual(values = jonas.pal)
 ggsave(file.path(plotDirAll, "fig4_strain_kneeplots.svg"), width=5, height=3, limitsize=FALSE)
 

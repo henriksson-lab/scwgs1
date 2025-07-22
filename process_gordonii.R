@@ -1,6 +1,6 @@
 
 adata <- readRDS(file.path(bascetRoot,"cache_adata_kraken.RDS"))
-KrakenKneePlot(adata, groupby = "species", show_num_spec=10)
+KrakenKneePlot(adata, groupby = "species", showNumSpecies=10)
 
 
 #Most common species
@@ -23,13 +23,13 @@ list_cells <- rownames(met)[1:10000]
 ################################################################################
 
 
-#bascet_instance <- getBascetDockerImage("/Users/mahogny/Desktop/rust/bascet/docker_image")  #return ok on linux. wtf?
-bascet_instance <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity")
-TestBascetInstance(bascet_instance)
+#bascetInstance <- getBascetDockerImage("/Users/mahogny/Desktop/rust/bascet/docker_image")  #return ok on linux. wtf?
+bascetInstance <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity")
+TestBascetInstance(bascetInstance)
 
-skesa_file <- OpenBascet(bascetRoot, "skesa", bascet_instance)
+skesa_file <- OpenBascet(bascetRoot, "skesa", bascetInstance)
 
-BascetListFilesForCell(skesa_file, "G1_E5_H7_E11", bascet_instance = bascet_instance)
+BascetListFilesForCell(skesa_file, "G1_E5_H7_E11", bascetInstance = bascetInstance)
 
 contig_file <- BascetReadFile(
   skesa_file,cellID = "G1_E5_H7_E11", filename = "contigs.fa",
@@ -65,16 +65,16 @@ sort(sapply(gordonii_fa_red,length),decreasing = TRUE)
 
 #only 10k cells with most reads, list of cells from above
 
-#bascet_instance <- getBascetDockerImage("/Users/mahogny/Desktop/rust/bascet/docker_image")  #return ok on linux. wtf?
-bascet_instance <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity")
-TestBascetInstance(bascet_instance)
+#bascetInstance <- getBascetDockerImage("/Users/mahogny/Desktop/rust/bascet/docker_image")  #return ok on linux. wtf?
+bascetInstance <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity")
+TestBascetInstance(bascetInstance)
 
 
 BascetDumpContigs(
   bascetRoot,
   inputName="skesa",
   listCells=list_cells,
-  bascet_instance=bascet_instance,
+  bascetInstance=bascetInstance,
   outputDir="/home/mahogny/github/scwgs/saliva_contigs"
 )
 

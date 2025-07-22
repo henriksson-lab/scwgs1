@@ -163,19 +163,19 @@ bascetRoot <- file.path("/husky/henriksson/atrandi/",dataset_name)
 p_minh <- file.path(bascetRoot,"minhash_hist.csv")
 p_use_kmers <- file.path(bascetRoot,"use_kmers.txt")
 
-kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
+kmerHist <- BascetReadMinhashHistogram(bascetRoot)
 
 ### KMER count histogram
-kmer_hist$rank <- 1:nrow(kmer_hist)
-ggplot(kmer_hist[sample(1:nrow(kmer_hist),min(30000, nrow(kmer_hist))),], aes(rank, cnt)) +   
+kmerHist$rank <- 1:nrow(kmerHist)
+ggplot(kmerHist[sample(1:nrow(kmerHist),min(30000, nrow(kmerHist))),], aes(rank, cnt)) +   
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   ylab("Count")+
   xlab("Rank")
-ggsave(file.path(plotDirAll,"fig3_info_kmer_hist.svg"), width = 3, height = 3)
-#ggsave(file.path(plotDir,"info_kmer_hist.png"), width = 5, height = 5)
+ggsave(file.path(plotDirAll,"fig3_info_kmerHist.svg"), width = 3, height = 3)
+#ggsave(file.path(plotDir,"info_kmerHist.png"), width = 5, height = 5)
 
 
 

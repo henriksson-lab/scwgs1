@@ -192,8 +192,8 @@ for(cur_cell_num in 1:nrow(submeta)){
   cellbedfile <- cellbedfile[cellbedfile$seqname == names(sort(table(cellbedfile$seqname), decreasing = TRUE))[1],]
   
   ## Figure out length of chromosome
-  len_of_chrom <- map_seq2strain$len[stringr::str_replace_all(map_seq2strain$id,"-","_")==cellbedfile$seqname[1]]
-  cellid_strain <- map_seq2strain$strain[stringr::str_replace_all(map_seq2strain$id,"-","_")==cellbedfile$seqname[1]]
+  len_of_chrom <- mapSeq2strain$len[stringr::str_replace_all(mapSeq2strain$id,"-","_")==cellbedfile$seqname[1]]
+  cellid_strain <- mapSeq2strain$strain[stringr::str_replace_all(mapSeq2strain$id,"-","_")==cellbedfile$seqname[1]]
   
   ## Subsample reads
   for(frac in pracma::logseq(0.001, 1, n = 30)) {

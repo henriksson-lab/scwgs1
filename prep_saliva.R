@@ -25,9 +25,9 @@ if(TRUE){
 
 }
 
-bascet_instance.default <- getBascetSingularityImage(store_at="~/mystore/")
+bascetInstance.default <- getBascetSingularityImage(storeAt="~/mystore/")
 bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
-#####bascet_runner <- LocalRunner(direct = TRUE, show_script=TRUE)
+#####bascet_runner <- LocalRunner(direct = TRUE, showScript=TRUE)
 
 setwd(bascetRoot)
 
@@ -263,8 +263,8 @@ system("echo END BascetMakeMinhashHistogram >> time.txt; echo `date +%s` >> time
 
 
 ### Pick KMERs -- do in R
-#kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
-#useKMERs <- kmer_hist$kmer[kmer_hist$cnt>5]
+#kmerHist <- BascetReadMinhashHistogram(bascetRoot)
+#useKMERs <- kmerHist$kmer[kmerHist$cnt>5]
 
 
 ## Build count table by looking up selected KMERs in per-cell KMER databases

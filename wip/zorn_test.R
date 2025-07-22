@@ -26,7 +26,7 @@ BascetGetRawAtrandiWGS
 
 if(FALSE){
   
-  inst <- LocalInstance(direct = TRUE, show_script=TRUE)
+  inst <- LocalInstance(direct = TRUE, showScript=TRUE)
   #bascetRoot = "/home/mahogny/github/bascet/testdata"
   #rawmeta <- DetectRawFileMeta("/home/mahogny/github/bascet/testdata/raw_1m")
   
@@ -120,7 +120,7 @@ if(FALSE){
 ################ RNA-seq analysis ##############################################       todo async local instance of bascet
 ################################################################################
 
-inst <- LocalInstance(direct = TRUE, show_script=FALSE)
+inst <- LocalInstance(direct = TRUE, showScript=FALSE)
 
 bascetRoot <- "/husky/henriksson/atrandi/rnaseq3/1"
 

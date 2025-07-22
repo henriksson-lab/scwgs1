@@ -19,9 +19,9 @@ if(TRUE){
   library(Zorn)
 }
 
-bascet_instance.default <- getBascetSingularityImage(store_at="~/mystore/")
+bascetInstance.default <- getBascetSingularityImage(storeAt="~/mystore/")
 bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
-#####bascet_runner <- LocalRunner(direct = TRUE, show_script=TRUE)
+#####bascet_runner <- LocalRunner(direct = TRUE, showScript=TRUE)
 
 setwd(bascetRoot)
 
