@@ -25,8 +25,8 @@ if(TRUE){
 
 }
 
-bascet_instance.default <- getBascetSingularityImage(store_at="~/mystore/")
-bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
+bascetInstance.default <- getBascetSingularityImage(store_at="~/mystore/")
+bascetRunner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
 #####bascet_runner <- LocalRunner(direct = TRUE, show_script=TRUE)
 
 setwd(bascetRoot)
@@ -123,15 +123,17 @@ BascetBam2Fragments(
  
 system("echo END BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
 
+}
+
 ### Count reads per chromosome
 system("echo START BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
 BascetCountChrom(
   bascetRoot,
+  min_matching=50,
   runner=SlurmRunner(bascet_runner.default, ncpu="10")
 )
 system("echo END BascetCountChrom >> time.txt; echo `date +%s` >> time.txt")
 
-}
 
 ################################################################################
 ################## Host filtering ##############################################

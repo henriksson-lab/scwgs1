@@ -25,6 +25,17 @@ bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
 
 setwd(bascetRoot)
 
+
+
+# skylake nodes: ~5GB/core
+# zen3: ~6.5GB/core
+# zen4: ~13GB/core
+# largemem nodes: ~4GB/core
+# So depending on how much corehours you want to waste (if the code is serial only) you can figure it out from that list. It does NOT apply to GPU nodes though, only the CPU ones.
+
+
+
+
 ################################################################################
 ############################### Debarcode ######################################
 ################################################################################
