@@ -35,8 +35,8 @@ library(future)
 plan("multicore", workers = 10)
 
 ## Mock community: which chromosome is which strain
-map_seq2strain <- read.csv("~/github/scwgs/map_seq2strain.csv")
-strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from map_seq2strain group by strain")
+mapSeq2strain <- read.csv("~/github/scwgs/mapSeq2strain.csv")
+strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from mapSeq2strain group by strain")
 
 
 
@@ -230,18 +230,18 @@ ggsave(file.path(plotDir, "kraken_hist_genus.pdf"), width=7, height=7, limitsize
 
 
 ############### Kneeplots for kraken
-show_num_spec <- 10
+showNumSpecies <- 10
 if(stringr::str_detect(bascetRoot,"saliva")){
-  show_num_spec <- 30
+  showNumSpecies <- 30
 }
 
-KrakenKneePlot(adata, groupby = "phylum", show_num_spec=show_num_spec)
+KrakenKneePlot(adata, groupby = "phylum", showNumSpecies=showNumSpecies)
 ggsave(file.path(plotDir, "kraken_kneeplot_per_phylum.pdf"), width=7, height=7, limitsize=FALSE)
 
-KrakenKneePlot(adata, groupby = "genus", show_num_spec=show_num_spec)
+KrakenKneePlot(adata, groupby = "genus", showNumSpecies=showNumSpecies)
 ggsave(file.path(plotDir, "kraken_kneeplot_per_genus.pdf"), width=7, height=7, limitsize=FALSE)
 
-KrakenKneePlot(adata, groupby = "species", show_num_spec=show_num_spec)
+KrakenKneePlot(adata, groupby = "species", showNumSpecies=showNumSpecies)
 ggsave(file.path(plotDir, "kraken_kneeplot_per_species.pdf"), width=7, height=7, limitsize=FALSE)
 
 
@@ -274,7 +274,7 @@ if(!str_detect(bascetRoot,"saliva")){
   
   
   ########## Produce a count matrix on strain level
-  adata[["species_cnt"]] <- ChromToSpeciesCount(adata, map_seq2strain)  #gives warning. coerce ourselves to dgCMatrix
+  adata[["species_cnt"]] <- ChromToSpeciesCount(adata, mapSeq2strain)  #gives warning. coerce ourselves to dgCMatrix
   
   #Figure out which species has most reads in which cell
   cnt <- adata@assays$species_cnt$counts
@@ -386,14 +386,14 @@ if(!str_detect(bascetRoot,"saliva")){
 p_minh <- file.path(bascetRoot,"minhash_hist.csv")
 p_use_kmers <- file.path(bascetRoot,"use_kmers.txt")
 if(file.exists(p_minh)) {
-  kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
-  #kmer_hist <- kmer_hist[order(kmer_hist$cnt, decreasing=TRUE),]
+  kmerHist <- BascetReadMinhashHistogram(bascetRoot)
+  #kmerHist <- kmerHist[order(kmerHist$cnt, decreasing=TRUE),]
   if(!file.exists(p_use_kmers)) {
     picked_kmers <- ChooseInformativeKMERs( ### 0.002 => 11212 this killed conda!
-      kmer_hist,
-#      minfreq = 0.002 #novaseq1, really few!
-#      minfreq = 0.0015 #saliva, really few!
-      minfreq = 0.0005 #novaseq3, really few!
+      kmerHist,
+#      minFreq = 0.002 #novaseq1, really few!
+#      minFreq = 0.0015 #saliva, really few!
+      minFreq = 0.0005 #novaseq3, really few!
       )
     writeLines(picked_kmers, p_use_kmers)
   }
@@ -401,17 +401,17 @@ if(file.exists(p_minh)) {
 
 
 ### KMER count histogram
-kmer_hist$rank <- 1:nrow(kmer_hist)
-ggplot(kmer_hist[sample(1:nrow(kmer_hist),min(30000, nrow(kmer_hist))),], aes(rank, cnt)) +   # not>2!!
-  #ggplot(kmer_hist[sample(which(kmer_hist$cnt>10), 5000),], aes(rank, cnt)) +   # not>2!!
+kmerHist$rank <- 1:nrow(kmerHist)
+ggplot(kmerHist[sample(1:nrow(kmerHist),min(30000, nrow(kmerHist))),], aes(rank, cnt)) +   # not>2!!
+  #ggplot(kmerHist[sample(which(kmerHist$cnt>10), 5000),], aes(rank, cnt)) +   # not>2!!
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   ylab("Count")+
   xlab("Rank")
-ggsave(file.path(plotDir,"info_kmer_hist.pdf"), width = 5, height = 5)
-ggsave(file.path(plotDir,"info_kmer_hist.png"), width = 5, height = 5)
+ggsave(file.path(plotDir,"info_kmerHist.pdf"), width = 5, height = 5)
+ggsave(file.path(plotDir,"info_kmerHist.png"), width = 5, height = 5)
 
 
 
@@ -434,8 +434,8 @@ if(FALSE){
   colSums(cnt)
   colSums(cnt>0)
   
-  ck_hist <- kmer_hist[kmer_hist$kmer %in% picked_kmers,]
-  ck_hist <- kmer_hist#[kmer_hist$kmer %in% picked_kmers,]
+  ck_hist <- kmerHist[kmerHist$kmer %in% picked_kmers,]
+  ck_hist <- kmerHist#[kmerHist$kmer %in% picked_kmers,]
   colnames(ck_hist) <- c("kmer","cnt_hist")
   
   ck_query <- data.frame(

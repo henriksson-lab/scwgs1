@@ -3,10 +3,10 @@
 ################## Preprocessing with Bascet/Zorn ##############################
 ################################################################################
 
-#bascet_inst <- LocalInstance(direct = TRUE, show_script=TRUE)
-bascet_runner.default <- LocalRunner(direct = TRUE, show_script=FALSE)
-bascet_instance.default <- BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")
-bascet_instance.default <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity/") #BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")#, direct = TRUE, show_script=FALSE)
+#bascet_inst <- LocalInstance(direct = TRUE, showScript=TRUE)
+bascet_runner.default <- LocalRunner(direct = TRUE, showScript=FALSE)
+bascetInstance.default <- BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")
+bascetInstance.default <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity/") #BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")#, direct = TRUE, showScript=FALSE)
 
 bascetRoot <- "/husky/henriksson/atrandi/wgs_saliva1/"
 rawmeta <- DetectRawFileMeta("/husky/fromsequencer/250311_failed_saliva/saliva_wgs/raw")
@@ -319,7 +319,7 @@ if(FALSE){
   ### Pick KMERs for use as features .................... some strains are very common. maybe pick across all freqs?
   useKMERs <- KmcChooseKmerFeatures(
     file.path(bascetRoot,"sumkmers.1.kmcdb"), 
-    num_pick=10000, minfreq=0.02, maxfreq=0.30)  
+    numPick=10000, minFreq=0.02, maxFreq=0.30)  
 }
 
 
@@ -343,7 +343,7 @@ library(ggplot2)
 ### Read count matrix
 cnt <- ReadBascetCountMatrix(file.path(bascetRoot,"kmer.1.counts.hdf5"))  #### TODO: should read and concatenate multiple matrices; different name?
 
-#bascet_instance.default  #temp dir here
+#bascetInstance.default  #temp dir here
 
 colnames(cnt) <- paste0("BASCET_",colnames(cnt)) ### compatibilíty with fragments
 
@@ -462,8 +462,8 @@ map_strain2gram <- read.csv("/husky/fromsequencer/240701_wgs_atcc1/straintype.cs
 
 library(stringr)
 
-get_map_seq2strain <- function(){
-  map_seq2strain <- NULL
+get_mapSeq2strain <- function(){
+  mapSeq2strain <- NULL
   refdir <- "/husky/fromsequencer/240809_novaseq_wgs1/trimmed/ref10/separate"
   for(f in list.files(refdir, pattern = "*.fasta")){
     print(f)
@@ -471,45 +471,45 @@ get_map_seq2strain <- function(){
     thel <- thel[str_starts(thel,">")]
     onedf <- data.frame(line=thel)
     onedf$strain <- f
-    map_seq2strain <- rbind(map_seq2strain, onedf)
+    mapSeq2strain <- rbind(mapSeq2strain, onedf)
   }
-  map_seq2strain$id <- str_split_fixed(str_sub(map_seq2strain$line,2)," ",2)[,1]
-  map_seq2strain$name <- str_split_fixed(str_sub(map_seq2strain$line,2)," ",2)[,2]
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain,".fasta")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," chr1")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," chr2")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," pRSPH01")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," pMP1")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," pCP1")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," NC_003909.8")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," NC_005707.1")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," NC_005707.1")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," plasmid")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," CP086328.1")
-  map_seq2strain$strain <- str_remove_all(map_seq2strain$strain," CP086329.1")
+  mapSeq2strain$id <- str_split_fixed(str_sub(mapSeq2strain$line,2)," ",2)[,1]
+  mapSeq2strain$name <- str_split_fixed(str_sub(mapSeq2strain$line,2)," ",2)[,2]
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain,".fasta")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," chr1")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," chr2")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," pRSPH01")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," pMP1")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," pCP1")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," NC_003909.8")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," NC_005707.1")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," NC_005707.1")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," plasmid")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," CP086328.1")
+  mapSeq2strain$strain <- str_remove_all(mapSeq2strain$strain," CP086329.1")
   
-  map_seq2strain <- merge(map_seq2strain,map_strain2gram)
-  map_seq2strain <- map_seq2strain[,colnames(map_seq2strain)!="line"]
+  mapSeq2strain <- merge(mapSeq2strain,map_strain2gram)
+  mapSeq2strain <- mapSeq2strain[,colnames(mapSeq2strain)!="line"]
   
   idx <- read.table(pipe("samtools idxstats /husky/fromsequencer/241206_novaseq_wgs3/trimmed/sorted.bam"),sep="\t")
   colnames(idx) <- c("id","len","mapped","unmapped")
-  map_seq2strain <- merge(idx[,c("id","len")], map_seq2strain)  #note, only using id and len
+  mapSeq2strain <- merge(idx[,c("id","len")], mapSeq2strain)  #note, only using id and len
   
-  map_seq2strain$id <- stringr::str_replace_all(map_seq2strain$id,stringr::fixed("_"), "-") #### for compatibility with signac
+  mapSeq2strain$id <- stringr::str_replace_all(mapSeq2strain$id,stringr::fixed("_"), "-") #### for compatibility with signac
   
-  map_seq2strain
+  mapSeq2strain
 }
 
 
 
 
-map_seq2strain <- get_map_seq2strain()[,c("id","len","strain")]
-strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from map_seq2strain group by strain")
+mapSeq2strain <- get_mapSeq2strain()[,c("id","len","strain")]
+strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from mapSeq2strain group by strain")
 
 
 ########## Produce a count matrix on strain level
 DefaultAssay(adata) <- "chrom_cnt"
-adata[["species_cnt"]] <- ChromToSpeciesCount(adata, map_seq2strain)  #gives warning. coerce ourselves to dgCMatrix
+adata[["species_cnt"]] <- ChromToSpeciesCount(adata, mapSeq2strain)  #gives warning. coerce ourselves to dgCMatrix
 
 #Figure out which species has most reads in which cell
 cnt <- adata@assays$species_cnt$counts
@@ -649,9 +649,9 @@ idxstat$unmapped[idxstat$id=="*"]/(sum(idxstat$unmapped)+sum(idxstat$mapped))
 ###########################
 
 
-bascet_runner.default <- LocalRunner(direct = TRUE, show_script=FALSE)
-#bascet_instance.default <- BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")
-bascet_instance.default <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity/") #BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")#, direct = TRUE, show_script=FALSE)
+bascet_runner.default <- LocalRunner(direct = TRUE, showScript=FALSE)
+#bascetInstance.default <- BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")
+bascetInstance.default <- getBascetSingularityImage("/home/mahogny/github/bascet/singularity/") #BascetInstance(bin = "/home/mahogny/github/bascet/target/debug/bascet", tempdir = "/tmp/")#, direct = TRUE, showScript=FALSE)
 
 GetDefaultBascetInstance()
 
@@ -660,7 +660,7 @@ bascetRoot <- "/husky/henriksson/atrandi/wgs_novaseq3"
 all_kmer <- AggregateMinhashes(bascetRoot) 
 
 
-streamer <- extractstreamer_start(bascet_instance = bascet_instance)
+streamer <- extractstreamer_start(bascetInstance = bascetInstance)
 extractstreamer_open(streamer, "/husky/henriksson/atrandi/v2_wgs_miseq2/minhash.1.zip")
 
 

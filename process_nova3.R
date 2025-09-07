@@ -24,19 +24,23 @@ if(FALSE){
   library(Zorn)
 }
 
+
+list_color_mock <- c(khroma::color("muted")(n = 9),"#DDDDDD")
+
 library(Seurat)
 library(Signac)
 library(sqldf)
 library(stringr)
 library(ggplot2)
 library(Matrix)
+library(GenomicRanges)
 
 library(future)
 plan("multicore", workers = 10)
 
 ## Mock community: which chromosome is which strain
-map_seq2strain <- read.csv("~/github/scwgs/map_seq2strain.csv")
-strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from map_seq2strain group by strain")
+mapSeq2strain <- read.csv("~/github/scwgs/mapSeq2strain.csv")
+strain_genomesize <- sqldf::sqldf("select sum(len) as len, strain from mapSeq2strain group by strain")
 
 bascet_runner <- LocalRunner(direct = TRUE)
 
@@ -47,15 +51,15 @@ list_datasets <- c(
 )
 
 for(dataset_name in list_datasets) {
-  
-  
-  
 }
 
 
 dataset_name <- "v4_wgs_novaseq1"
+dataset_name <- "v4_wgs_novaseq2"
 dataset_name <- "v4_wgs_novaseq3"
 dataset_name <- "v4_wgs_saliva1"
+dataset_name <- "simulated2"
+dataset_name <- "simulated4"
 #bascetRoot = "/husky/henriksson/atrandi/v2_wgs_miseq2/"  #for development
 
 
@@ -66,6 +70,12 @@ if(!file.exists(plotDir)){
   print("made plot dir")
 }
 
+plotDirAll <- file.path("~/github/scwgs/plots/all")
+if(!file.exists(plotDirAll)){
+  dir.create(plotDirAll, recursive = TRUE)
+  print("made plot dir all")
+}
+
 
 #100 for miseq??
 min_nCount_RNA <- 1000
@@ -73,8 +83,6 @@ min_nCount_RNA <- 1000
 setwd("/home/mahogny/github/zorn") #to put SQL in the right place
 
 
-################################################################################
-################## Kraken-based analysis #######################################  
 ################################################################################
 
 mat <- ReadBascetCountMatrix(bascetRoot,"kraken", verbose=FALSE)
@@ -126,7 +134,6 @@ if(TRUE){
   adata <- RunUMAP(adata, dims = 1:20, reduction.name = "kraken_umap")
 }
 
-saveRDS(adata, file.path(bascetRoot,"cache_adata_kraken.RDS"))
 
 
 
@@ -145,14 +152,17 @@ sce <- scDblFinder::scDblFinder(sce)
 adata$scDblFinder.score <- sce$scDblFinder.score
 adata$scDblFinder.class <- sce$scDblFinder.class
 
-FeaturePlot(adata, features = c("scDblFinder.score")) 
-ggsave(file.path(plotDir, "umap_kraken_doublet_score.pdf"), width=7, height=7, limitsize=FALSE) + xlab("KRAKEN1") + ylab("KRAKEN2")
+saveRDS(adata, file.path(bascetRoot,"cache_adata_kraken.RDS"))
+adata <- readRDS(file.path(bascetRoot,"cache_adata_kraken.RDS"))
+  
+FeaturePlot(adata, features = c("scDblFinder.score")) + xlab("KRAKEN1") + ylab("KRAKEN2")
+ggsave(file.path(plotDir, "umap_kraken_doublet_score.pdf"), width=7, height=7, limitsize=FALSE) 
 
-DimPlot(adata, group.by = c("scDblFinder.class")) 
-ggsave(file.path(plotDir, "umap_kraken_doublet_class.pdf"), width=7, height=7, limitsize=FALSE) + xlab("KRAKEN1") + ylab("KRAKEN2")
+DimPlot(adata, group.by = c("scDblFinder.class")) + xlab("KRAKEN1") + ylab("KRAKEN2")
+ggsave(file.path(plotDir, "umap_kraken_doublet_class.pdf"), width=7, height=7, limitsize=FALSE) 
 
 VlnPlot(adata, "log_cnt", group.by = "scDblFinder.class")
-ggsave(file.path(plotDir, "kraken_doublet_violin.pdf"), width=3, height=7, limitsize=FALSE) + xlab("KRAKEN1") + ylab("KRAKEN2")
+ggsave(file.path(plotDir, "kraken_doublet_violin.pdf"), width=3, height=7, limitsize=FALSE)
 
 
 #### Save metadata for overlay in other sections (support merging different objects too)
@@ -172,6 +182,10 @@ ggsave(file.path(plotDir, "kraken_doublet_violin.pdf"), width=3, height=7, limit
 DimPlot(object = adata, label = TRUE, group.by = "genus", reduction = "kraken_umap") + NoLegend() + xlab("KRAKEN1") + ylab("KRAKEN2")
 ggsave(file.path(plotDir, "umap_kraken_genus.pdf"), width=7, height=7)
 
+#For grants etc
+DimPlot(object = adata, group.by = "genus", reduction = "kraken_umap") + xlab("KRAKEN1") + ylab("KRAKEN2")
+
+
 ## UMAP of species abundance according to KRAKEN
 DimPlot(object = adata, label = TRUE, group.by = "species", reduction = "kraken_umap") + NoLegend() + xlab("KRAKEN1") + ylab("KRAKEN2")
 ggsave(file.path(plotDir, "umap_kraken_species.pdf"), width=7, height=7)
@@ -181,7 +195,7 @@ ggsave(file.path(plotDir, "umap_kraken_species.pdf"), width=7, height=7)
 #Compare with depth. "human" cells got few counts and end up in the middle
 if(stringr::str_detect(dataset_name,"saliva")){
   FeaturePlot(adata, features = "taxid-339") ## "Xanthomonas campestris" 
-  ggsave(file.path(plotDir, "umap_kraken_xanthomonas.pdf"), width=7, height=7, limitsize=FALSE) + xlab("KRAKEN1") + ylab("KRAKEN2")
+  ggsave(file.path(plotDir, "umap_kraken_xanthomonas.pdf"), width=7, height=7, limitsize=FALSE) 
 }
 
 FeaturePlot(adata, features = c("log_cnt")) + xlab("KRAKEN1") + ylab("KRAKEN2")
@@ -232,22 +246,23 @@ ggplot(df[df$cnt>5,], aes(genus, cnt)) +
 ggsave(file.path(plotDir, "kraken_hist_genus.pdf"), width=7, height=7, limitsize=FALSE) 
 
 ############### Kneeplots for kraken
-show_num_spec <- 10
+showNumSpecies <- 10
 if(stringr::str_detect(bascetRoot,"saliva")){
-  show_num_spec <- 30
+  showNumSpecies <- 30
 }
 
-KrakenKneePlot(adata, groupby = "phylum", show_num_spec=show_num_spec)
+KrakenKneePlot(adata, groupby = "phylum", showNumSpecies=showNumSpecies)
 ggsave(file.path(plotDir, "kraken_kneeplot_per_phylum.pdf"), width=7, height=7, limitsize=FALSE)
 
-KrakenKneePlot(adata, groupby = "genus", show_num_spec=show_num_spec)
+KrakenKneePlot(adata, groupby = "genus", showNumSpecies=showNumSpecies)
 ggsave(file.path(plotDir, "kraken_kneeplot_per_genus.pdf"), width=7, height=7, limitsize=FALSE)
 
-KrakenKneePlot(adata, groupby = "species", show_num_spec=show_num_spec)
+KrakenKneePlot(adata, groupby = "species", showNumSpecies=showNumSpecies)
 ggsave(file.path(plotDir, "kraken_kneeplot_per_species.pdf"), width=7, height=7, limitsize=FALSE)
 
 
 
+######## TODO need to redo all KrakenKneePlot!!!
 
 
 ################################################################################
@@ -275,7 +290,7 @@ if(!str_detect(bascetRoot,"saliva")){
   adata
 
   ########## Produce a count matrix on strain level
-  adata[["species_cnt"]] <- ChromToSpeciesCount(adata, map_seq2strain)  #gives warning. coerce ourselves to dgCMatrix
+  adata[["species_cnt"]] <- ChromToSpeciesCount(adata, mapSeq2strain)  #gives warning. coerce ourselves to dgCMatrix
   
   #Figure out which species has most reads in which cell
   cnt <- adata@assays$species_cnt$counts
@@ -317,20 +332,23 @@ if(!str_detect(bascetRoot,"saliva")){
     adata <- RunPCA(adata, features = VariableFeatures(object = adata))
     adata <- RunUMAP(adata, dims = 1:(nrow(adata)-1), reduction.name = "chrom_umap")
   }
-  
+
+  ### Cache results  
+  saveRDS(adata, file.path(bascetRoot,"cache_adata_align.RDS"))
+  adata <- readRDS(file.path(bascetRoot,"cache_adata_align.RDS"))
   
   
   ### Plotting - max species per cell
   DimPlot(object = adata, label = TRUE, group.by = "species_aln_short") + 
     xlab("BWA1") + 
     ylab("BWA2") + ggtitle("") #+ NoLegend()
-  ggsave(file.path(plotDir,"umap_alignment_species.pdf"), width = 7, height = 7)
+  ggsave(file.path(plotDir,"umap_alignment_species.pdf"), width = 7, height = 5)
 
   ### Plotting - max species per cell, doublets removed
   DimPlot(object = adata[,adata$scDblFinder.class=="singlet"], label = TRUE, group.by = "species_aln_short") + 
     xlab("BWA1") + 
     ylab("BWA2") + ggtitle("") #+ NoLegend()
-  ggsave(file.path(plotDir,"umap_alignment_nodoublet.pdf"), width = 7, height = 7)
+  ggsave(file.path(plotDir,"umap_alignment_nodoublet.pdf"), width = 7, height = 5)
   
   # Save distribution for simulation etc
   cnt <- adata@assays$species_cnt$counts
@@ -340,15 +358,29 @@ if(!str_detect(bascetRoot,"saliva")){
   )
   saveRDS(df_align_bc_dist, file.path(bascetRoot,"align_metadata.RDS"))
   
+
+  ##########
+  ########## Kneeplot for all
+  ##########
+
+  plot_one_kneeplot_all <- function(adata){
+    df <- data.frame(
+      cnt=sort(colSums(adata@assays$species_cnt$counts), decreasing = TRUE)
+    )
+    df$index <- 1:nrow(df) 
+    ggplot(df, aes(index, cnt)) + geom_line() + scale_x_log10() + scale_y_log10() + theme_bw() + ylab("Read count") + xlab("Cell index")
+  }
+  plot_one_kneeplot_all(adata)
+    
+  ggsave(file.path(plotDir,"alignment_kneeplot_all.pdf"), width = 6, height = 4)
   
   ##########
-  ########## Kneeplot
+  ########## Kneeplot per species
   ##########
   
-  #adata@assays$species_cnt
   DefaultAssay(adata) <- "species_cnt"
   KneeplotPerSpecies(adata)
-  ggsave(file.path(plotDir,"alignment_kneeplot.pdf"), width = 8, height = 7)
+  ggsave(file.path(plotDir,"alignment_kneeplot.pdf"), width = 6, height = 4)
 
   ##########
   ########## Barnyard plot
@@ -362,7 +394,7 @@ if(!str_detect(bascetRoot,"saliva")){
   )
   bp$restc <- bp$totc - bp$maxc
   
-  ggplot(bp, aes(maxc,restc)) +   #,color=log10(totc)
+  ggplot(bp, aes(maxc,restc)) + 
     geom_point() +
     theme_bw() +
     xlab("Dominant species count") +
@@ -372,6 +404,17 @@ if(!str_detect(bascetRoot,"saliva")){
   
   #Could store "otherness" as a score to plot
   
+  ##########
+  ########## Bias plot
+  ##########
+  
+  df <- adata@meta.data
+  df <- sqldf("select count(*) as cnt, species_aln_short from df group by species_aln_short")
+  df$dataset <- dataset_name
+  df
+  saveRDS(df, file.path(bascetRoot,"count_per_species_aln.RDS"))
+  
+
 }
 
 
@@ -382,32 +425,44 @@ if(!str_detect(bascetRoot,"saliva")){
 p_minh <- file.path(bascetRoot,"minhash_hist.csv")
 p_use_kmers <- file.path(bascetRoot,"use_kmers.txt")
 if(file.exists(p_minh)) {
-  kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
-  #kmer_hist <- kmer_hist[order(kmer_hist$cnt, decreasing=TRUE),]
+  kmerHist <- BascetReadMinhashHistogram(bascetRoot)
+  #kmerHist <- kmerHist[order(kmerHist$cnt, decreasing=TRUE),]
   if(!file.exists(p_use_kmers)) {
-    picked_kmers <- ChooseInformativeKMERs( ### 0.002 => 11212 this killed conda!
-      kmer_hist,
-#      minfreq = 0.002 #novaseq1, really few!
-#      minfreq = 0.0015 #saliva, really few!
-      minfreq = 0.0005 #novaseq3, really few!
-      )
+    
+    kmerHist$rand_index <- sample(1:nrow(kmerHist)) #add a tie breaker
+    kmerHist <- kmerHist[order(kmerHist$cnt, kmerHist$rand_index, decreasing=TRUE),]
+
+    #Pick the most common KMERs    
+    picked_kmers <- kmerHist$kmer[1:100000]
+
+#     picked_kmers <- ChooseInformativeKMERs( ### 0.002 => 11212 this killed conda!
+#       kmerHist,
+# #      minFreq = 0.2 #simulated2; much higher cutoff needed for 34k 
+# #      minFreq = 0.002 #novaseq1, really few!
+# #      minFreq = 0.0015 #saliva, really few!
+#       minFreq = 0.001 #novaseq2, really few!
+# #      minFreq = 0.0005 #novaseq3, really few!
+#       ) ################################################### option of max count?
     writeLines(picked_kmers, p_use_kmers)
+    bascetRoot
   }
+  
+  
+  
+  ### KMER count histogram
+  kmerHist$rank <- 1:nrow(kmerHist)
+  ggplot(kmerHist[sample(1:nrow(kmerHist),min(30000, nrow(kmerHist))),], aes(rank, cnt)) +   # not>2!!
+    #ggplot(kmerHist[sample(which(kmerHist$cnt>10), 5000),], aes(rank, cnt)) +   # not>2!!
+    geom_point() + 
+    scale_x_log10() + 
+    scale_y_log10() +
+    theme_bw() +
+    ylab("Count")+
+    xlab("Rank")
+  ggsave(file.path(plotDir,"info_kmerHist.pdf"), width = 5, height = 5)
+  ggsave(file.path(plotDir,"info_kmerHist.png"), width = 5, height = 5)
+  
 }
-
-
-### KMER count histogram
-kmer_hist$rank <- 1:nrow(kmer_hist)
-ggplot(kmer_hist[sample(1:nrow(kmer_hist),min(30000, nrow(kmer_hist))),], aes(rank, cnt)) +   # not>2!!
-  #ggplot(kmer_hist[sample(which(kmer_hist$cnt>10), 5000),], aes(rank, cnt)) +   # not>2!!
-  geom_point() + 
-  scale_x_log10() + 
-  scale_y_log10() +
-  theme_bw() +
-  ylab("Count")+
-  xlab("Rank")
-ggsave(file.path(plotDir,"info_kmer_hist.pdf"), width = 5, height = 5)
-ggsave(file.path(plotDir,"info_kmer_hist.png"), width = 5, height = 5)
 
 
 
@@ -421,17 +476,26 @@ cnt <- ReadBascetCountMatrix(  #  x[.,.] <- val : x being coerced from Tsparse* 
   bascetRoot,
   "kmer_counts"
 ) 
+cnt <- cnt$X
 dim(cnt)
 #rownames(cnt) <- paste0("_",rownames(cnt))  #### todo fix naming
+
+if(FALSE){
+  ### Order by frequency of feature
+  cnt <- cnt[,order(colSums(cnt), decreasing = TRUE)]
+  
+  ### Subset features (speed up, and to test how many we need)
+  cnt <- cnt[,1:10000]
+}
+
 
 
 ###### Comparison of abundance, histogram vs query
 if(FALSE){
-  colSums(cnt)
-  colSums(cnt>0)
+  sum(colSums(cnt)>100000)
   
-  ck_hist <- kmer_hist[kmer_hist$kmer %in% picked_kmers,]
-  ck_hist <- kmer_hist#[kmer_hist$kmer %in% picked_kmers,]
+  ck_hist <- kmerHist[kmerHist$kmer %in% picked_kmers,]
+  ck_hist <- kmerHist#[kmerHist$kmer %in% picked_kmers,]
   colnames(ck_hist) <- c("kmer","cnt_hist")
   
   ck_query <- data.frame(
@@ -448,11 +512,15 @@ if(FALSE){
 
 if(TRUE) {
 
+  cnt <- cnt[order(rowSums(cnt), decreasing = TRUE),]
+  #rowSums(cnt)>20000
+  
   ## Load subset of real cells
-  keep_cells <- rowSums(cnt)>20000
-  sum(keep_cells)
+  #keep_cells <- rowSums(cnt)>20000
+  #sum(keep_cells)
   adata <- CreateSeuratObject(
-    counts = CreateAssayObject(t(cnt[keep_cells,])),  #cutoff on kmer count
+    counts = CreateAssayObject(t(cnt[1:10000,])),  #cutoff on cell count
+    #counts = CreateAssayObject(t(cnt[keep_cells,])),  #cutoff on kmer count
     assay = "infokmer"
   )
   
@@ -498,17 +566,19 @@ ggsave(file.path(plotDir,"infokmer_depthcor.pdf"), width = 4, height = 3)
 
 adata <- RunUMAP(object = adata, reduction = 'lsi', dims = 1:30, reduction.name = "infokmers_umap")  ## dim 1 affected plenty if binarizing matrix
 
+saveRDS(adata, file.path(bascetRoot,"cache_adata_infokmer.RDS"))
+
 ##### 
 ##### Plots
 ##### 
 
-DimPlot(object = adata, label = TRUE, group.by = "genus", reduction = "infokmers_umap") + NoLegend()
+DimPlot(object = adata, label = TRUE, group.by = "genus", reduction = "infokmers_umap") + NoLegend() + xlab("IK1") + ylab("IK2")
 ggsave(file.path(plotDir,"infokmer_umap_genus.pdf"), width = 5, height = 5)
 
-DimPlot(object = adata, label = TRUE, group.by = "phylum", reduction = "infokmers_umap") + NoLegend()
+DimPlot(object = adata, label = TRUE, group.by = "phylum", reduction = "infokmers_umap") + NoLegend() + xlab("IK1") + ylab("IK2")
 ggsave(file.path(plotDir,"infokmer_umap_phylum.pdf"), width = 5, height = 5)
 
-FeaturePlot(adata, "log10_nCount_infokmer", reduction = "infokmers_umap")
+FeaturePlot(adata, "log10_nCount_infokmer", reduction = "infokmers_umap") + xlab("IK1") + ylab("IK2")
 ggsave(file.path(plotDir,"infokmer_umap_kmercount.pdf"), width = 5, height = 5)
 
 
@@ -518,7 +588,7 @@ ggsave(file.path(plotDir,"infokmer_umap_kmercount.pdf"), width = 5, height = 5)
 
 DimPlot(
   object = adata[,adata$genus %in% names(which(table(adata$genus)>50))], 
-  label = TRUE, group.by = "genus", reduction = "infokmers_umap") #+ 
+  label = TRUE, group.by = "genus", reduction = "infokmers_umap")  + xlab("IK1") + ylab("IK2")
   #NoLegend()
 ggsave(file.path(plotDir,"infokmer_umap_genus_dominant.pdf"), width = 7, height = 7)
 
@@ -548,6 +618,7 @@ adata@meta.data <- cbind(
 #Non-linear dimensional reduction
 adata <- RunUMAP(adata, dims = 1:ncol(adata@reductions$kmersketch@cell.embeddings), reduction = "kmersketch")  #Searching Annoy index using 1 thread, search_k = 3000 ; can do more
 
+saveRDS(adata, file.path(bascetRoot,"cache_adata_cs.RDS"))
 
 ##### 
 ##### Plotting
@@ -567,6 +638,8 @@ ggsave(file.path(plotDir,"umap_countsketch_species.pdf"), width = 7, height = 7)
 
 FeaturePlot(adata, features = "log10_celldepth") + xlab("CS1") + ylab("CS2")
 ggsave(file.path(plotDir,"umap_countsketch_logkmer.pdf"), width = 7, height = 7)
+
+
 
 
 ################################################################################
@@ -602,33 +675,41 @@ quast_aggr.df <- quast_aggr.df[!is.na(quast_aggr.df$depth),]
 #### Plotting
 #### 
 
-ggplot(quast_aggr.df, aes(tot_length, largest_contig, color=log10(depth))) +  
+p1 <- ggplot(quast_aggr.df, aes(tot_length, largest_contig, color=log10(depth))) +  
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   xlab("Total contig length") + 
   ylab("Largest contig")
-ggsave(file.path(plotDir,"quast_totlen_VS_largestContig.png"), width = 5, height = 5)
+p1
+ggsave(plot = p1, file.path(plotDir,"quast_totlen_VS_largestContig.png"), width = 5, height = 5)
 
-ggplot(quast_aggr.df, aes(tot_length, num_contigs, color=log10(depth))) + 
+p2 <- ggplot(quast_aggr.df, aes(tot_length, num_contigs, color=log10(depth))) + 
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   xlab("Total contig length") + 
   ylab("Number of contigs")
-ggsave(file.path(plotDir,"quast_totlen_VS_numContigs.png"), width = 5, height = 5)
+p2
+ggsave(plot = p2, file.path(plotDir,"quast_totlen_VS_numContigs.png"), width = 5, height = 5)
 
-ggplot(quast_aggr.df, aes(N50, num_contigs, color=log10(depth))) + 
+p3 <- ggplot(quast_aggr.df, aes(N50, num_contigs, color=log10(depth))) + 
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10() +
   theme_bw() +
   xlab("N50") +  #N50 ~ weighted median statistic such that 50% of the entire assembly is contained in contigs or scaffolds equal to or larger than this value.
   ylab("Number of contigs")
-ggsave(file.path(plotDir,"quast_n50_VS_numContigs.png"), width = 5, height = 5)
+p3
+ggsave(plot = p3, file.path(plotDir,"quast_n50_VS_numContigs.png"), width = 5, height = 5)
 
+
+
+ptot <- egg::ggarrange(p1,p2,p3, nrow=1)
+ggsave(plot = ptot, file.path(plotDir,"quast_allqc.png"), width = 12, height = 3)
+ggsave(plot = ptot, file.path(plotDir,"quast_allqc.svg"), width = 12, height = 3)
 
 ################################################################################
 ######### Analysis of assembled genomes: abricate ##############################
@@ -747,38 +828,58 @@ ggsave(file.path(plotDir,"umap_kraken_fastqc_GC.pdf"), width = 5, height = 5)
 
 
 
+
+
+
+
+
 ################################################################################
-######### Analysis of reads: Host% DNA ######################################### saliva only. overestimates!
+########################## Bias plot ###########################################
 ################################################################################
 
+df <- rbind(
+  readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq1/count_per_species_aln.RDS"),
+  readRDS("/husky/henriksson/atrandi/v4_wgs_novaseq3/count_per_species_aln.RDS")
+)
 
-dat <- read.table(file.path(bascetRoot,"alignment_stats.csv"),sep="\t")
-colnames(dat) <- c("chrom","seqlen","count","count2")
-dat$organism <- "Human"
-dat$organism[stringr::str_starts(dat$chrom,stringr::fixed("NZ_"))] <- "Xanthomonas"
-dat$organism[dat$chrom=="*"] <- "Unmapped"
-#dat$organism[dat$organism=="*"] <- "Unmapped"
+#Normalize cell count
+for(ds in unique(df$dataset)){
+  df$cnt[df$dataset==ds] <- df$cnt[df$dataset==ds]/sum(df$cnt[df$dataset==ds])*100
+}
 
-dat$count[dat$organism=="Unmapped"] <- dat$count2[dat$organism=="Unmapped"]
-
-dat_cnt <- sqldf::sqldf("select sum(count) as count, organism from dat group by organism")
-dat_cnt$frac <- dat_cnt$count / sum(dat_cnt$count) *100
-
-
-ggplot(dat_cnt, aes(frac, organism)) + 
-  geom_bar(stat = "identity") + 
+ggplot(df, aes(species_aln_short, cnt, fill=dataset)) + 
+  geom_bar(stat="identity", position = "dodge") + 
   coord_flip() + 
   theme_bw() +
-  xlab("% reads") + 
-  ylab("")
+  ylab("Fraction (%)") +
+  xlab("")+
+  scale_x_discrete(limits=rev)
+ggsave(file.path(plotDirAll, "biascomparison.svg"), width = 7, height = 3)
 
-ggsave(file.path(plotDir,"host_fraction.pdf"), width = 3, height = 4)
 
 
 
-#TODO: which cell has the most unclassified reads? id=0. does bascet care?
-#bascet discards such reads ... store in some matrix too?
 
+
+
+
+
+
+################################################################################
+##################### saliva per species kneeplot ##############################
+################################################################################
+
+adata <- readRDS(file.path(bascetRoot,"cache_adata_kraken.RDS"))
+
+KrakenKneePlot(adata, groupby = "genus", showNumSpecies=20)
+ggsave(file.path(plotDirAll, "kraken_saliva_kneeplot_per_genus.pdf"), width=7, height=7, limitsize=FALSE)
+
+
+KrakenKneePlot(adata, groupby = "species", showNumSpecies=10)
+#Streptococcus gordonii
+
+
+sort(unique(adata$species))
 
 
 

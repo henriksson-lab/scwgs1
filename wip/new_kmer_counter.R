@@ -1,5 +1,5 @@
 
-bascet_runner <- LocalRunner(direct = TRUE, show_script=TRUE)
+bascet_runner <- LocalRunner(direct = TRUE, showScript=TRUE)
 bascetRoot = "/husky/henriksson/atrandi/v2_wgs_miseq/"
 #bascetRoot = "/husky/henriksson/atrandi/wgs_novaseq3/"
 #rawmeta <- DetectRawFileMeta("/husky/fromsequencer/240903_wgs_atcc2_miseq/raw")
@@ -18,11 +18,11 @@ BascetMakeMinhashHistogram(
 )
 
 ### Pick KMERs
-kmer_hist <- BascetReadMinhashHistogram(bascetRoot)
-useKMERs <- kmer_hist$kmer[kmer_hist$cnt>5]
+kmerHist <- BascetReadMinhashHistogram(bascetRoot)
+useKMERs <- kmerHist$kmer[kmerHist$cnt>5]
 
-kmer_hist$rank <- 1:nrow(kmer_hist)
-ggplot(kmer_hist[kmer_hist$cnt>2,], aes(rank, cnt)) + 
+kmerHist$rank <- 1:nrow(kmerHist)
+ggplot(kmerHist[kmerHist$cnt>2,], aes(rank, cnt)) + 
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10()
