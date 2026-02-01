@@ -26,7 +26,7 @@ if(TRUE){
 
 
 bascetInstance.default <- getBascetSingularityImage(storeAt="~/mystore/")
-bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
+bascet_runner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10", logTime=TRUE)
 #bascet_runner <- LocalRunner(direct = TRUE, showScript=FALSE)
 
 setwd(bascetRoot)

@@ -60,6 +60,7 @@ dataset_name <- "v4_wgs_novaseq3"
 dataset_name <- "v4_wgs_saliva1"
 dataset_name <- "simulated2"
 dataset_name <- "simulated4"
+dataset_name <- "v6_251128_jyoti_mock_bulk"
 #bascetRoot = "/husky/henriksson/atrandi/v2_wgs_miseq2/"  #for development
 
 

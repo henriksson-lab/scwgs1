@@ -27,7 +27,7 @@ if(TRUE){
 }
 
 bascetInstance.default <- getBascetSingularityImage(storeAt="~/mystore/")
-bascetRunner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10")
+bascetRunner.default <- SlurmRunner(account="hpc2n2025-074", ncpu="10", logTime=TRUE)
 #####bascet_runner <- LocalRunner(direct = TRUE, show_script=TRUE)
 
 setwd(bascetRoot)
@@ -171,7 +171,7 @@ BascetFilterAlignment(
     bascetRoot, 
     numLocalThreads=1,
     inputName="unsorted_aligned", 
-    outputName="nohost_aligned",
+    outputName="nohost_aligned", ##### SAM format; should be bam
     keepMapped=FALSE,
     runner=SlurmRunner(bascetRunner.default, ncpu="1") #foo
 )
@@ -189,7 +189,7 @@ system("echo START totirp >> time.txt; echo `date +%s` >> time.txt")
 BascetMapTransform(
   bascetRoot,
   inputName="nohost_aligned",
-  outputName = "new_filtered",
+  outputName = "new_filtered", ############ empty
   outFormat="tirp.gz"
 )
 system("echo END totirp >> time.txt; echo `date +%s` >> time.txt")
@@ -202,7 +202,7 @@ system("echo START tofastq_filtered >> time.txt; echo `date +%s` >> time.txt")
 BascetMapTransform(
   bascetRoot,
   inputName="nohost_aligned",
-  outputName = "new_filtered_fa",
+  outputName = "new_filtered_fa", ################## empty!!!!
   outFormat="R1.fq.gz"
 )
 system("echo END tofastq_filtered >> time.txt; echo `date +%s` >> time.txt")
