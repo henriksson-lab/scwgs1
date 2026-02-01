@@ -61,6 +61,7 @@ if(file.exists("rawdata.txt")) {
   system("echo END BascetGetRaw >> time.txt; echo `date +%s` >> time.txt")
 }
 
+
 ################################################################################
 ############################### Shardify #######################################
 ################################################################################
@@ -70,35 +71,23 @@ if(file.exists("rawdata.txt")) {
   debstat <- PrepareSharding(
     bascetRoot,
     inputName="debarcoded",
-    bascetInstance=bascetInstance.default,
+#    bascetInstance=bascetInstance.default,
     minQuantile=0.95
   )
 
   DebarcodedKneePlot(debstat, filename = "kneeplot.pdf")
 
-  
-  ### Decide cells to include
-  #h <- ReadHistogram(bascetRoot,"debarcoded")
-  #includeCells <- h$cellid[h$count>10]       ########### 10 for miseq
-  #includeCells <- h$cellid[h$count>100]       ########### 10 for miseq
-  #length(includeCells)
-  
   ### Shardify i.e. divide into multiple sets of files for parallel processing.
   # this command will spawn many processes, as it does random I/O on the input files
   system("echo START BascetShardify >> time.txt; echo `date +%s` >> time.txt")
   BascetShardify(
     debstat,
-    #bascetRoot,
-    #includeCells = includeCells,
-    #num_output_shards = 5, ############### 10,
-    #num_output_shards = 10,
-    numOutputShards = 20,
-    runner=SlurmRunner(bascetRunner.default, ncpu="16")  #not much CPU needed. increased for memory demands
+    numOutputShards = 20
+    #runner=SlurmRunner(bascetRunner.default, ncpu="16")  #not much CPU needed. increased for memory demands
   )
   system("echo END BascetShardify >> time.txt; echo `date +%s` >> time.txt")
-  
-}
 
+}
 
 
 ### Get reads in fastq format for BWA
@@ -144,6 +133,7 @@ BascetAlignToReference(
   numLocalThreads=10
 )
 system("echo END BascetAlignToReference >> time.txt; echo `date +%s` >> time.txt")
+
 
 ### Generate fragments BED file suited for quantifying reads/chromosome using Signac later -- this is a wrapper for mapshard
 system("echo START BascetBam2Fragments >> time.txt; echo `date +%s` >> time.txt")
@@ -205,6 +195,8 @@ BascetGatherCountSketch(
   bascetRoot
 )
 system("echo END BascetGatherCountSketch >> time.txt; echo `date +%s` >> time.txt")
+
+stop()
 
 ################################################################################
 ################## Informative KMER ############################################
