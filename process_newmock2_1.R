@@ -39,6 +39,7 @@ library(GenomicRanges)
 
 library(future)
 plan("multicore", workers = 10)
+#plan("multiprocess", workers = 20)
 
 ## Mock community: which chromosome is which strain
 #mapSeq2strain <- read.csv("~/github/scwgs/map_seq2strain.csv")
@@ -54,9 +55,18 @@ list_datasets <- c(
 
 
 
-dataset_name <- "mock2"
+#dataset_name <- "mock2"
+dataset_name <- "v6_251128_jyoti_mock_bulk"
+dataset_name <- "v6_251205_saliva2_mda"
+dataset_name <- "v6_260116_mock_pta"
+dataset_name <- "v7_260116_mock_pta"
 #bascetRoot = "/husky/henriksson/atrandi/v2_wgs_miseq2/"  #for development
-bascetRoot <- "/big/henriksson/atrandi_mock_prev" #17gb
+#bascetRoot <- "/big/henriksson/atrandi_mock_prev" #17gb
+bascetRoot <- "/husky/henriksson/atrandi/v6_251128_jyoti_mock_bulk"
+bascetRoot <- "/husky/henriksson/atrandi/v6_251205_saliva2_mda"
+bascetRoot <- "/husky/henriksson/atrandi/v6_260116_mock_pta"
+bascetRoot <- "/husky/henriksson/atrandi/v6_simulated4"
+bascetRoot <- "/husky/henriksson/atrandi/v7_260116_mock_pta"
 # or? /big/henriksson/atrandi_mock #271 gb
 
 #bascetRoot <- file.path("/husky/henriksson/atrandi/",dataset_name)
@@ -144,7 +154,7 @@ hist(df$cnt_no_dup/df$cnt_with_dup)
 # }
 
 
-mat <- ReadBascetCountMatrix(bascetRoot,"kraken", verbose=FALSE)
+mat <- ReadBascetCountMatrix(bascetRoot,"kraken_mat", verbose=FALSE)
 dim(mat$X)
 table(rownames(mat$X))[table(rownames(mat$X))>1] ##many are in twice!!!
 
@@ -243,6 +253,13 @@ ggsave(file.path(plotDir, "kraken_doublet_violin.pdf"), width=3, height=7, limit
 ##### UMAP plots
 #####
 
+## UMAP of phylum abundance according to KRAKEN
+DimPlot(object = adata, label = TRUE, group.by = "phylum", reduction = "kraken_umap") + 
+#  NoLegend() + 
+  xlab("KRAKEN1") + 
+  ylab("KRAKEN2")
+ggsave(file.path(plotDir, "umap_kraken_phylum.pdf"), width=7, height=7)
+
 ## UMAP of genus abundance according to KRAKEN
 DimPlot(object = adata, label = TRUE, group.by = "genus", reduction = "kraken_umap") + 
   NoLegend() + 
@@ -337,9 +354,12 @@ ggsave(file.path(plotDir, "kraken_kneeplot_per_species.pdf"), width=7, height=7,
 
 ######## TODO need to redo all KrakenKneePlot!!!
 
-
-
-
+## quick and dirty barplot
+df <- data.frame(
+  cnt = sort(colSums(adata@assays$RNA@counts), decreasing = TRUE)
+)
+df$ind <- 1:nrow(df)
+ggplot(df, aes(ind, cnt)) + geom_line() + scale_x_log10() + scale_y_log10()
 
 
 ################################################################################
@@ -530,16 +550,17 @@ if(!str_detect(bascetRoot,"saliva")){
   adata@assays$species_cnt$counts[1:10,]
   
   bp <- data.frame(
-    maxc = MatrixGenerics::colMaxs(adata@assays$species_cnt$counts),
-    totc = colSums(adata@assays$species_cnt$counts[1:10,])  ### remove xanthomonas
+    maxc = MatrixGenerics::colMaxs(adata@assays$species_cnt$counts[1:10,]), ### remove xanthomonas etc
+    totc = colSums(adata@assays$species_cnt$counts[1:10,])  ### remove xanthomonas etc
   )
   bp$restc <- bp$totc - bp$maxc
+  mean(bp$maxc/bp$totc>0.8)
   
   ggplot(bp, aes(maxc,restc)) + 
     geom_point() +
     theme_bw() +
     xlab("Dominant species count") +
-    ylab("Other species count")
+    ylab("Other species count") #+ scale_x_log10() + scale_y_log10()
   ggsave(file.path(plotDir,"alignment_barnyard.pdf"), width = 5, height = 5)
   
   hist(log10(bp$maxc/bp$totc), breaks=100)
@@ -760,7 +781,8 @@ ggsave(file.path(plotDir,"infokmer_umap_genus_dominant.pdf"), width = 7, height 
 ################################################################################
 
 #Load data as seurat object 
-adata <- BascetLoadCountSketchMatrix(bascetRoot,inputName = "countsketch.0.tsv")
+adata <- BascetLoadCountSketchMatrix(bascetRoot,inputName = "countsketch_mat.csv") ############# TODO: load full set of shards. negative counts!!
+#adata <- BascetLoadCountSketchMatrix(bascetRoot,inputName = "countsketch.0.tsv") ############# update!
 adata$log10_celldepth <- log10(adata$celldepth)
 
 #Subset cells
@@ -769,6 +791,7 @@ min_kmers <- 1000  #40k for saliva => 8k cells; option: pick top N cells for com
 keep_cells <- adata$celldepth > min_kmers
 sum(keep_cells)
 adata <- adata[,keep_cells]
+adata <- adata[,1:5000]
 
 #Add kraken metadata
 kraken_taxid <- readRDS(file.path(bascetRoot,"kraken_metadata.RDS"))
@@ -780,11 +803,17 @@ adata@meta.data <- cbind(
 #Non-linear dimensional reduction
 adata <- RunUMAP(adata, dims = 1:ncol(adata@reductions$kmersketch@cell.embeddings), reduction = "kmersketch")  #Searching Annoy index using 1 thread, search_k = 3000 ; can do more
 
+#any(is.na(adata@reductions$kmersketch@cell.embeddings))
+
+
+
 saveRDS(adata, file.path(bascetRoot,"cache_adata_cs.RDS"))
 
 ##### 
 ##### Plotting
 ##### 
+
+DimPlot(object = adata, label = TRUE) + NoLegend() + xlab("CS1") + ylab("CS2")
 
 DimPlot(object = adata, label = TRUE, group.by = "phylum") + NoLegend() + xlab("CS1") + ylab("CS2")
 ggsave(file.path(plotDir,"umap_countsketch_phylum.pdf"), width = 7, height = 7)

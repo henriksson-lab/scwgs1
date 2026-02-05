@@ -55,20 +55,23 @@ subsamp_one <- function(fname) {
 }
 
 subsamp_mda <- subsamp_one("/husky/henriksson/atrandi/v6_251128_jyoti_mock_bulk/random.bed")
-#subsamp_mda <- subsamp_one("/husky/henriksson/atrandi/v6_251128_jyoti_mock_bulk/conv.bed")
 subsamp_mda$chem <- "mda"
 
 subsamp_pta <- subsamp_one("/husky/henriksson/atrandi/v6_260116_mock_pta/random.bed")
-#subsamp_pta <- subsamp_one("/husky/henriksson/atrandi/v6_260116_mock_pta/conv.bed")
 subsamp_pta$chem <- "pta"
+
+ggplot(rbind(subsamp_mda, subsamp_pta), aes(read_bp, coverage, color=chem)) + geom_line()
+
+
+
+#subsamp_mda <- subsamp_one("/husky/henriksson/atrandi/v6_251128_jyoti_mock_bulk/conv.bed")
+#subsamp_pta <- subsamp_one("/husky/henriksson/atrandi/v6_260116_mock_pta/conv.bed")
 
 #fname <- "/husky/henriksson/atrandi/v6_251128_jyoti_mock_bulk/conv.bed"
 
 
 #ggplot(subsamp_mda, aes(read_bp, coverage)) + geom_line()
 #ggplot(all_len, aes(numread, coverage)) + geom_line()
-
-ggplot(rbind(subsamp_mda, subsamp_pta), aes(read_bp, coverage, color=chem)) + geom_line()
 
 
 #how big is this thing??
